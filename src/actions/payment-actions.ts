@@ -18,7 +18,6 @@ export interface CreatePaymentOrderData {
 export interface CreatePaymentOrderResult {
   success: boolean;
   orderId?: string;
-  razorpayOrderId?: string;
   error?: string;
 }
 
@@ -57,14 +56,14 @@ export async function createPaymentOrder(
       return { success: false, error: "Not enough tickets available" };
     }
 
-  // Generate a provider-agnostic order id (no external gateway involved)
-  const fakeOrderId = `test_order_${crypto.randomBytes(8).toString("hex")}`;
+  // Generate an internal order id (no external gateway)
+  const internalOrderId = `order_${crypto.randomBytes(8).toString("hex")}`;
   const receipt = `event_${Date.now()}`;
 
     // Create payment order in database
   const paymentOrder = await prisma.paymentOrder.create({
       data: {
-    razorpayOrderId: fakeOrderId,
+    // Use the generic id field and save the internalOrderId in receipt/response for traceability
     amount: Math.round(data.totalAmount * 100),
     currency: data.currency || "INR",
     receipt,
@@ -75,29 +74,22 @@ export async function createPaymentOrder(
         quantity: data.quantity,
         totalAmount: data.totalAmount,
         expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-    razorpayResponse: { id: fakeOrderId, provider: "test" } as any
+    razorpayResponse: { id: internalOrderId, provider: "internal" } as any
       }
     });
 
     revalidatePath("/dashboard/bookings");
     revalidatePath("/events/[eventId]");
 
-    return {
-      success: true,
-      orderId: paymentOrder.id,
-  razorpayOrderId: fakeOrderId
-    };
+  return { success: true, orderId: paymentOrder.id };
   } catch (error) {
     console.error("Error creating payment order:", error);
     return { success: false, error: "Failed to create payment order" };
   }
 }
 
-export async function verifyPayment(
-  razorpayOrderId: string,
-  razorpayPaymentId: string,
-  _razorpaySignature: string
-): Promise<VerifyPaymentResult> {
+// Mark the internal order as paid and create booking
+export async function confirmInternalPayment(orderId: string): Promise<VerifyPaymentResult> {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -111,7 +103,7 @@ export async function verifyPayment(
     // Process payment in transaction
     const result = await prisma.$transaction(async (tx) => {
       const paymentOrder = await tx.paymentOrder.findUnique({
-        where: { razorpayOrderId },
+        where: { id: orderId },
         include: { event: true, ticket: true }
       });
 
@@ -144,17 +136,14 @@ export async function verifyPayment(
         throw new Error("Not enough tickets available");
       }
 
-      // Create payment record
-    const payment = await tx.payment.create({
+    // Create payment record
+    await tx.payment.create({
         data: {
           paymentOrderId: paymentOrder.id,
-      razorpayPaymentId,
-      razorpaySignature: "test_signature",
           amount: paymentOrder.amount,
           currency: paymentOrder.currency,
           status: "SUCCESSFUL",
-      method: "card",
-      razorpayResponse: { paymentId: razorpayPaymentId, provider: "test" },
+      method: "internal",
           isSignatureVerified: true,
           verifiedAt: new Date()
         }
@@ -165,7 +154,7 @@ export async function verifyPayment(
         where: { id: paymentOrder.id },
         data: {
           status: "SUCCESSFUL",
-          razorpayResponse: { paymentId: razorpayPaymentId, provider: "test" }
+          razorpayResponse: { provider: "internal", status: "paid" }
         }
       });
 
@@ -215,13 +204,11 @@ export async function verifyPayment(
     return result;
   } catch (error) {
     console.error("Error verifying payment:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to verify payment" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to confirm payment" };
   }
 }
 
-export async function handlePaymentFailure(
-  razorpayOrderId: string
-): Promise<void> {
+export async function handlePaymentFailure(orderId: string): Promise<void> {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -232,7 +219,7 @@ export async function handlePaymentFailure(
 
     await prisma.$transaction(async (tx) => {
       const paymentOrder = await tx.paymentOrder.findUnique({
-        where: { razorpayOrderId }
+        where: { id: orderId }
       });
 
       if (!paymentOrder) {
@@ -253,12 +240,11 @@ export async function handlePaymentFailure(
     await tx.payment.create({
         data: {
           paymentOrderId: paymentOrder.id,
-          razorpayPaymentId: "failed",
           amount: paymentOrder.amount,
           currency: paymentOrder.currency,
           status: "FAILED",
           failureReason: "Payment failed",
-      razorpayResponse: { orderId: razorpayOrderId, provider: "test" }
+      razorpayResponse: { orderId, provider: "internal" }
         }
       });
     });
