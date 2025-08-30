@@ -74,12 +74,12 @@ export function ResetPasswordForm({
         otp: data.otp,
         password: data.password,
       });
-
-      if (result.error) {
-        onError?.(result.error.message ?? "Failed to reset password");
+      const err = (result as any)?.error;
+      if (err) {
+        const msg = typeof err === "string" ? err : err.message || "Failed to reset password";
+        onError?.(msg);
         return;
       }
-
       onSuccess?.();
     } catch (error) {
       console.error("Reset password error:", error);
@@ -93,10 +93,16 @@ export function ResetPasswordForm({
 
   const handleResendCode = async () => {
     try {
-      await authClient.emailOtp.sendVerificationOtp({
+      const res = await authClient.emailOtp.sendVerificationOtp({
         email,
         type: "forget-password",
       });
+      const err = (res as any)?.error;
+      if (err) {
+        const msg = typeof err === "string" ? err : err.message || "Failed to resend verification code";
+        onError?.(msg);
+        return;
+      }
       onError?.(""); // Clear any existing errors
       // You might want to show a success message here
     } catch (error) {

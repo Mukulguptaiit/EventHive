@@ -63,12 +63,12 @@ export function OtpVerification({
         email: data.email,
         otp: data.otp,
       });
-
-      if (result.error) {
-        onError?.(result.error.message ?? "Invalid verification code");
+      const err = (result as any)?.error;
+      if (err) {
+        const msg = typeof err === "string" ? err : err.message || "Invalid verification code";
+        onError?.(msg);
         return;
       }
-
       onSuccess?.();
     } catch (error) {
       console.error("OTP verification error:", error);

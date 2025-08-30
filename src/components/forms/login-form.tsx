@@ -49,14 +49,13 @@ export function LoginForm({
         password: data.password,
       });
 
-      if (result.error) {
-        onError?.(result.error);
+      const err = (result as any)?.error;
+      if (err) {
+        const message = typeof err === "string" ? err : err.message || "Login failed";
+        onError?.(message);
         return;
       }
-
-      if (result.success) {
-        onSuccess?.();
-      }
+      onSuccess?.();
     } catch (error) {
       console.error("Login error:", error);
       onError?.(

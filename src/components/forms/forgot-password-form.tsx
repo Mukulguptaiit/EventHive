@@ -53,12 +53,12 @@ export function ForgotPasswordForm({
         email: data.email,
         type: "forget-password",
       });
-
-      if (result.error) {
-        onError?.(result.error.message ?? "Failed to send reset email");
+      const err = (result as any)?.error;
+      if (err) {
+        const msg = typeof err === "string" ? err : err.message || "Failed to send reset email";
+        onError?.(msg);
         return;
       }
-
       onSuccess?.(data.email);
     } catch (error) {
       console.error("Forgot password error:", error);

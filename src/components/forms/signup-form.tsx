@@ -61,21 +61,17 @@ export function SignUpForm({ className, onSuccess, onError }: SignUpFormProps) {
       const result = await authClient.signUp.email({
         email: data.email,
         password: data.password,
-        data: {
-          name: data.fullName,
-          image: avatarUrl,
-          role: data.role,
-        },
+        name: data.fullName,
+        image: avatarUrl,
       });
-
-      if (result.error) {
-        onError?.(result.error);
+      const err = (result as any)?.error;
+      if (err) {
+        const message =
+          typeof err === "string" ? err : err.message || "Sign up failed";
+        onError?.(message);
         return;
       }
-
-      if (result.success) {
-        onSuccess?.(data.email);
-      }
+      onSuccess?.(data.email);
     } catch (error) {
       console.error("Signup error:", error);
       onError?.(
