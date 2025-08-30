@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { UserRole } from "@/types/venue";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 
 interface SessionGuardProps {
   children: React.ReactNode;
@@ -18,10 +18,8 @@ export function SessionGuard({
   requireEmailVerification = false,
   redirectTo = "/auth/login",
 }: SessionGuardProps) {
-  const [isValidating, setIsValidating] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,21 +27,11 @@ export function SessionGuard({
 
     const validateSession = async () => {
       try {
-        // Get session from our custom endpoint
-        const response = await fetch("/api/auth/session", {
-          credentials: "include",
-        });
+        const session = await authClient.getSession();
 
         if (!isMounted) return;
 
-        if (!response.ok || response.status === 401) {
-          router.replace(redirectTo);
-          return;
-        }
-
-        const session = await response.json();
-
-        if (!session?.user) {
+        if (!session) {
           router.replace(redirectTo);
           return;
         }
@@ -54,59 +42,45 @@ export function SessionGuard({
           return;
         }
 
-        // For now, use a default role since our schema doesn't have roles yet
-        const currentUserRole: UserRole = UserRole.USER;
-
-        if (!isMounted) return;
-
-        setUserRole(currentUserRole);
-
-        if (!requiredRoles.includes(currentUserRole)) {
-          // Redirect based on user role
-          if (
-            currentUserRole === UserRole.FACILITY_OWNER ||
-            currentUserRole === UserRole.ADMIN
-          ) {
-            router.replace("/dashboard");
-          } else {
-            router.replace("/");
+        // Check role requirements
+        if (requiredRoles.length > 0) {
+          const userRole = session.user.role as UserRole;
+          if (!userRole || !requiredRoles.includes(userRole)) {
+            router.replace("/auth/login");
+            return;
           }
-          return;
         }
 
         setIsAuthorized(true);
       } catch (error) {
-        console.error("SessionGuard - Session validation error:", error);
+        console.error("Session validation error:", error);
         if (isMounted) {
           router.replace(redirectTo);
         }
       } finally {
         if (isMounted) {
-          setIsValidating(false);
+          setIsLoading(false);
         }
       }
     };
 
-    void validateSession();
+    validateSession();
 
     return () => {
       isMounted = false;
     };
-  }, [router, requiredRoles, requireEmailVerification, redirectTo]);
+  }, [requiredRoles, requireEmailVerification, redirectTo, router]);
 
-  if (isValidating) {
+  if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-          <p className="text-sm text-gray-600">Validating session...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
   if (!isAuthorized) {
-    return null; // Router will handle redirect
+    return null;
   }
 
   return <>{children}</>;

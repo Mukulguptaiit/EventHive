@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +14,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { loginSchema, type LoginFormData } from "@/schemas/auth";
+import { cn } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
 
 interface LoginFormProps {
   className?: string;
@@ -43,33 +44,23 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: data.email,
-          password: data.password,
-        }),
+      const result = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        onError?.(result.error ?? "Login failed");
+      if (result.error) {
+        onError?.(result.error);
         return;
       }
 
       if (result.success) {
         onSuccess?.();
-      } else {
-        onError?.(result.error ?? "Login failed");
       }
     } catch (error) {
       console.error("Login error:", error);
       onError?.(
-        error instanceof Error ? error.message : "An unexpected error occurred",
+        error instanceof Error ? error.message : "An unexpected error occurred"
       );
     } finally {
       setIsLoading(false);
@@ -78,80 +69,57 @@ export function LoginForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className={cn("flex flex-col gap-6", className)}
-      >
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-2xl font-bold">Welcome back</h1>
-          <p className="text-muted-foreground text-sm text-balance">
-            Enter your credentials to access your EventHive account
-          </p>
-        </div>
+      <form onSubmit={form.handleSubmit(onSubmit)} className={cn("space-y-4", className)}>
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <div className="grid gap-4">
-          {/* Email */}
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="john@example.com"
-                    {...field}
-                    disabled={isLoading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  placeholder="Enter your password"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          {/* Password */}
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center">
-                  <FormLabel>Password</FormLabel>
-                  <button
-                    type="button"
-                    onClick={onForgotPassword}
-                    className="text-primary ml-auto text-sm underline-offset-4 hover:underline"
-                    disabled={isLoading}
-                  >
-                    Forgot your password?
-                  </button>
-                </div>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="Enter your password"
-                    {...field}
-                    disabled={isLoading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Login Button */}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign in"}
+        <div className="flex items-center justify-between">
+          <Button
+            type="button"
+            variant="link"
+            className="px-0 text-sm"
+            onClick={onForgotPassword}
+          >
+            Forgot password?
           </Button>
         </div>
 
-        <div className="text-center text-sm">
-          Don&apos;t have an account?{" "}
-          <a href="/auth/signup" className="underline underline-offset-4">
-            Sign up
-          </a>
-        </div>
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Signing in..." : "Sign in"}
+        </Button>
       </form>
     </Form>
   );
