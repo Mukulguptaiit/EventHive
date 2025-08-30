@@ -1,0 +1,557 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?
+  bio           String?
+  address       String?
+  dateOfBirth   DateTime?
+  gender        String?
+  website       String?
+  linkedIn      String?
+  twitter       String?
+  createdAt     DateTime
+  updatedAt     DateTime
+  sessions        Session[]
+  attendeeProfile AttendeeProfile?
+  Account         Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
+}
+
+// EventHive Business Models
+
+enum UserRole {
+  ATTENDEE
+  EVENT_ORGANIZER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  CONFIRMED
+  CANCELLED
+  CHECKED_IN
+  NO_SHOW
+}
+
+enum EventType {
+  WORKSHOP
+  CONCERT
+  SPORTS
+  HACKATHON
+  CONFERENCE
+  SEMINAR
+  WEBINAR
+  MEETUP
+  FESTIVAL
+  EXHIBITION
+}
+
+enum TicketType {
+  GENERAL
+  VIP
+  STUDENT
+  EARLY_BIRD
+  GROUP
+  PREMIUM
+}
+
+enum WaitlistStatus {
+  WAITING
+  PROMOTED
+  EXPIRED
+}
+
+enum ReportType {
+  EVENT_INAPPROPRIATE_CONTENT
+  EVENT_FALSE_INFORMATION
+  EVENT_SAFETY_CONCERN
+  USER_HARASSMENT
+  USER_INAPPROPRIATE_BEHAVIOR
+  USER_SPAM
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum VenueType {
+  INDOOR
+  OUTDOOR
+  VIRTUAL
+  HYBRID
+}
+
+model AttendeeProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  role        UserRole  @default(ATTENDEE)
+  phoneNumber String?
+  avatar      String?
+  isActive    Boolean   @default(true)
+  isBanned    Boolean   @default(false)
+  bannedUntil DateTime?
+  loyaltyPoints Int     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrations   Registration[]
+  ownedEvents     Event[]           @relation("EventOrganizer")
+  waitlistEntries WaitlistEntry[]
+  eventReviews    EventReview[]
+  submittedReports Report[]         @relation("ReportSubmitter")
+  receivedReports  Report[]         @relation("ReportTarget")
+  paymentOrders   PaymentOrder[]
+  registrationReservations RegistrationReservation[]
+  checkIns        CheckIn[]
+
+  @@map("attendee_profile")
+}
+
+model Event {
+  id              String         @id @default(cuid())
+  title           String
+  description     String?
+  shortDescription String?
+  startDate       DateTime
+  endDate         DateTime
+  startTime       String         // Format: "HH:mm"
+  endTime         String         // Format: "HH:mm"
+  location        String
+  latitude        Float?
+  longitude       Float?
+  venueType       VenueType      @default(INDOOR)
+  eventType       EventType
+  category        String?
+  tags            String[]
+  images          String[]
+  maxAttendees    Int?
+  minAttendees    Int?           @default(1)
+  isPublic        Boolean        @default(true)
+  requiresApproval Boolean       @default(false)
+  contactEmail    String?
+  contactPhone    String?
+  website         String?
+  socialLinks     String[]       // JSON array of social media links
+  terms           String?        // Terms and conditions
+  status          EventStatus    @default(DRAFT)
+  rating          Float?
+  reviewCount     Int            @default(0)
+  organizerId     String
+  featuredUntil   DateTime?      // For trending/featured events
+  publishedAt     DateTime?
+  cancelledAt     DateTime?
+  cancellationReason String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  organizer       AttendeeProfile @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  tickets         Ticket[]
+  registrations   Registration[]
+  reviews         EventReview[]
+  reports         Report[]        @relation("ReportedEvent")
+  waitlistEntries WaitlistEntry[]
+  checkIns        CheckIn[]
+  promotions      Promotion[]
+
+  @@index([status])
+  @@index([organizerId])
+  @@index([eventType])
+  @@index([startDate])
+  @@index([rating])
+  @@index([featuredUntil])
+  @@map("event")
+}
+
+model EventReview {
+  id        String   @id @default(cuid())
+  eventId   String
+  attendeeId String
+  rating    Int      // 1-5 stars
+  comment   String?
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  event    Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendee AttendeeProfile @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, attendeeId]) // One review per attendee per event
+  @@index([eventId])
+  @@index([attendeeId])
+  @@index([rating])
+  @@map("event_review")
+}
+
+model Ticket {
+  id                String     @id @default(cuid())
+  name              String     // e.g., "General Admission", "VIP", "Student"
+  eventId           String
+  ticketType        TicketType @default(GENERAL)
+  description       String?
+  price             Float
+  quantity          Int        // Total available tickets
+  sold              Int        @default(0)
+  maxPerUser        Int        @default(10)
+  saleStartDate     DateTime?
+  saleEndDate       DateTime?
+  isActive          Boolean    @default(true)
+  requiresApproval  Boolean    @default(false)
+  perks             String[]   // What's included with this ticket
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  // Relations
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations Registration[]
+
+  @@index([eventId])
+  @@index([ticketType])
+  @@index([isActive])
+  @@map("ticket")
+}
+
+model Registration {
+  id                 String             @id @default(cuid())
+  ticketId           String
+  eventId            String
+  attendeeId         String
+  quantity           Int                @default(1)
+  totalPrice         Float
+  status             RegistrationStatus @default(CONFIRMED)
+  paymentSimulated   Boolean            @default(false)
+  paymentOrderId     String?            // Reference to payment order
+  ticketCode         String             @unique // QR code/barcode content
+  registrationNotes  String?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  refundAmount       Float?
+  checkedInAt        DateTime?
+  version            Int                @default(0) // For optimistic locking
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  ticket       Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendee     AttendeeProfile @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+  paymentOrder PaymentOrder? @relation(fields: [paymentOrderId], references: [id], onDelete: SetNull)
+  checkIn      CheckIn?
+
+  @@index([ticketId])
+  @@index([attendeeId])
+  @@index([eventId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([paymentOrderId])
+  @@index([ticketCode])
+  @@map("registration")
+}
+
+model CheckIn {
+  id             String   @id @default(cuid())
+  registrationId String   @unique
+  eventId        String
+  attendeeId     String
+  checkedInAt    DateTime @default(now())
+  checkedInBy    String?  // Staff member who checked them in
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  registration Registration    @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  event        Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendee     AttendeeProfile @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([attendeeId])
+  @@index([checkedInAt])
+  @@map("check_in")
+}
+
+model WaitlistEntry {
+  id         String         @id @default(cuid())
+  eventId    String
+  attendeeId String
+  ticketId   String?        // Specific ticket type they want
+  quantity   Int            @default(1)
+  priority   Int            @default(0) // Lower number = higher priority
+  status     WaitlistStatus @default(WAITING)
+  notifiedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  // Relations
+  event    Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendee AttendeeProfile @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, attendeeId])
+  @@index([eventId, priority])
+  @@index([status])
+  @@map("waitlist_entry")
+}
+
+model Promotion {
+  id            String   @id @default(cuid())
+  eventId       String
+  code          String   @unique
+  name          String
+  description   String?
+  discountType  String   // "PERCENTAGE" or "FIXED_AMOUNT"
+  discountValue Float    // Percentage (0-100) or fixed amount
+  minQuantity   Int      @default(1)
+  maxUses       Int?     // Null = unlimited
+  usedCount     Int      @default(0)
+  validFrom     DateTime
+  validUntil    DateTime
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([code])
+  @@index([validFrom, validUntil])
+  @@map("promotion")
+}
+
+
+model Report {
+  id           String       @id @default(cuid())
+  type         ReportType
+  status       ReportStatus @default(PENDING)
+  reason       String
+  description  String?
+  evidence     String[] // URLs to screenshots or files
+  
+  // Who submitted the report
+  reporterId   String
+  reporter     AttendeeProfile @relation("ReportSubmitter", fields: [reporterId], references: [id], onDelete: Cascade)
+  
+  // What/who is being reported (nullable - only one should be set)
+  targetUserId   String?
+  targetUser     AttendeeProfile? @relation("ReportTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  
+  targetEventId String?
+  targetEvent   Event? @relation("ReportedEvent", fields: [targetEventId], references: [id], onDelete: Cascade)
+  
+  // Admin actions
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  actionTaken    String? // Description of what action was taken
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@index([reporterId])
+  @@index([targetUserId])
+  @@index([targetEventId])
+  @@map("report")
+}
+
+// Payment and Registration Enhancement Models
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESSFUL
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum RegistrationReservationStatus {
+  RESERVED
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+}
+
+model PaymentOrder {
+  id                String        @id @default(cuid())
+  razorpayOrderId   String        @unique
+  amount            Float         // Amount in INR (paise)
+  currency          String        @default("INR")
+  receipt           String        // Unique receipt identifier
+  status            PaymentStatus @default(PENDING)
+  attempts          Int           @default(0)
+  
+  // Registration context
+  attendeeId        String
+  eventId           String
+  ticketIds         String[]      // Array of ticket IDs being purchased
+  quantities        Int[]         // Corresponding quantities for each ticket
+  totalPrice        Float         // Total registration price
+  
+  // Promotion/discount
+  promotionCode     String?
+  discountAmount    Float?        @default(0)
+  
+  // Razorpay response data
+  razorpayResponse  Json?         // Store complete Razorpay response
+  
+  // Relations
+  attendee          AttendeeProfile @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+  registrationReservation RegistrationReservation?
+  registrations     Registration[]
+  
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  expiresAt         DateTime      // Payment expiry time
+  
+  @@index([razorpayOrderId])
+  @@index([attendeeId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([eventId])
+  @@map("payment_order")
+}
+
+model Payment {
+  id                  String        @id @default(cuid())
+  paymentOrderId      String
+  razorpayPaymentId   String        @unique
+  razorpaySignature   String?       // For payment verification
+  amount              Float         // Amount in paise
+  currency            String        @default("INR")
+  status              PaymentStatus @default(PENDING)
+  method              String?       // Payment method used (card, upi, etc.)
+  
+  // Payment details from Razorpay
+  razorpayResponse    Json?         // Complete payment response
+  failureReason       String?       // Failure reason if payment failed
+  
+  // Verification
+  isSignatureVerified Boolean       @default(false)
+  verifiedAt          DateTime?
+  
+  // Relations
+  paymentOrder        PaymentOrder  @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  
+  @@index([razorpayPaymentId])
+  @@index([paymentOrderId])
+  @@index([status])
+  @@map("payment")
+}
+
+model RegistrationReservation {
+  id              String                       @id @default(cuid())
+  paymentOrderId  String                       @unique
+  eventId         String
+  ticketIds       String[]                     // Tickets being reserved
+  quantities      Int[]                        // Quantities for each ticket
+  attendeeId      String
+  status          RegistrationReservationStatus @default(RESERVED)
+  totalPrice      Float
+  
+  // Reservation details
+  reservedAt      DateTime                     @default(now())
+  expiresAt       DateTime                     // Reservation expiry (usually 15 minutes)
+  confirmedAt     DateTime?                    // When registration was confirmed after payment
+  
+  // Relations
+  paymentOrder    PaymentOrder                 @relation(fields: [paymentOrderId], references: [id], onDelete: Cascade)
+  attendee        AttendeeProfile              @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  
+  @@index([ticketIds])
+  @@index([attendeeId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([eventId])
+  @@map("registration_reservation")
+}

@@ -1,0 +1,90 @@
+// Event and ticket type definitions
+// These match the Prisma schema but are maintained separately for better control
+
+export enum EventType {
+  WORKSHOP = "WORKSHOP",
+  CONCERT = "CONCERT",
+  SPORTS = "SPORTS",
+  HACKATHON = "HACKATHON",
+  CONFERENCE = "CONFERENCE",
+  SEMINAR = "SEMINAR",
+  WEBINAR = "WEBINAR",
+  MEETUP = "MEETUP",
+  FESTIVAL = "FESTIVAL",
+  EXHIBITION = "EXHIBITION",
+}
+
+export enum TicketType {
+  GENERAL = "GENERAL",
+  VIP = "VIP",
+  STUDENT = "STUDENT",
+  EARLY_BIRD = "EARLY_BIRD",
+  GROUP = "GROUP",
+  PREMIUM = "PREMIUM",
+}
+
+export enum VenueType {
+  INDOOR = "INDOOR",
+  OUTDOOR = "OUTDOOR",
+  VIRTUAL = "VIRTUAL",
+  HYBRID = "HYBRID",
+}
+
+export enum RegistrationStatus {
+  CONFIRMED = "CONFIRMED",
+  CANCELLED = "CANCELLED",
+  CHECKED_IN = "CHECKED_IN",
+  NO_SHOW = "NO_SHOW",
+}
+
+export enum EventStatus {
+  DRAFT = "DRAFT",
+  PUBLISHED = "PUBLISHED",
+  CANCELLED = "CANCELLED",
+  COMPLETED = "COMPLETED",
+}
+
+export enum UserRole {
+  ATTENDEE = "ATTENDEE",
+  EVENT_ORGANIZER = "EVENT_ORGANIZER",
+  ADMIN = "ADMIN",
+}
+
+export enum WaitlistStatus {
+  WAITING = "WAITING",
+  PROMOTED = "PROMOTED",
+  EXPIRED = "EXPIRED",
+}
+
+export enum PaymentStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  SUCCESSFUL = "SUCCESSFUL",
+  FAILED = "FAILED",
+  REFUNDED = "REFUNDED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum BookingReservationStatus {
+  RESERVED = "RESERVED",
+  CONFIRMED = "CONFIRMED",
+  EXPIRED = "EXPIRED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum ReportType {
+  FACILITY_INAPPROPRIATE_CONTENT = "FACILITY_INAPPROPRIATE_CONTENT",
+  FACILITY_FALSE_INFORMATION = "FACILITY_FALSE_INFORMATION",
+  FACILITY_SAFETY_CONCERN = "FACILITY_SAFETY_CONCERN",
+  USER_HARASSMENT = "USER_HARASSMENT",
+  USER_INAPPROPRIATE_BEHAVIOR = "USER_INAPPROPRIATE_BEHAVIOR",
+  USER_SPAM = "USER_SPAM",
+  OTHER = "OTHER",
+}
+
+export enum ReportStatus {
+  PENDING = "PENDING",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  RESOLVED = "RESOLVED",
+  DISMISSED = "DISMISSED",
+}
