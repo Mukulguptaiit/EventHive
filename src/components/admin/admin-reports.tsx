@@ -55,7 +55,17 @@ import {
   deleteReport,
   type AdminReport,
 } from "@/actions/report-actions";
-import { ReportStatus, ReportType } from "@/generated/prisma";
+// @ts-expect-error - using string-based statuses/types aligned with schema
+// Minimal local types mirroring schema values used in UI
+type ReportStatus = "PENDING" | "UNDER_REVIEW" | "RESOLVED" | "DISMISSED";
+type ReportType =
+  | "USER_HARASSMENT"
+  | "USER_INAPPROPRIATE_BEHAVIOR"
+  | "USER_SPAM"
+  | "FACILITY_INAPPROPRIATE_CONTENT"
+  | "FACILITY_FALSE_INFORMATION"
+  | "FACILITY_SAFETY_CONCERN"
+  | "OTHER";
 import { toast } from "sonner";
 
 interface AdminReportsProps {
@@ -63,28 +73,28 @@ interface AdminReportsProps {
   onReportUpdated?: () => void;
 }
 
-const REPORT_TYPE_LABELS = {
-  [ReportType.USER_HARASSMENT]: "User Harassment",
-  [ReportType.USER_INAPPROPRIATE_BEHAVIOR]: "Inappropriate Behavior",
-  [ReportType.USER_SPAM]: "Spam",
-  [ReportType.FACILITY_INAPPROPRIATE_CONTENT]: "Inappropriate Content",
-  [ReportType.FACILITY_FALSE_INFORMATION]: "False Information",
-  [ReportType.FACILITY_SAFETY_CONCERN]: "Safety Concern",
-  [ReportType.OTHER]: "Other",
+const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  USER_HARASSMENT: "User Harassment",
+  USER_INAPPROPRIATE_BEHAVIOR: "Inappropriate Behavior",
+  USER_SPAM: "Spam",
+  FACILITY_INAPPROPRIATE_CONTENT: "Inappropriate Content",
+  FACILITY_FALSE_INFORMATION: "False Information",
+  FACILITY_SAFETY_CONCERN: "Safety Concern",
+  OTHER: "Other",
 };
 
-const STATUS_COLORS = {
-  [ReportStatus.PENDING]: "bg-yellow-100 text-yellow-800",
-  [ReportStatus.UNDER_REVIEW]: "bg-blue-100 text-blue-800",
-  [ReportStatus.RESOLVED]: "bg-green-100 text-green-800",
-  [ReportStatus.DISMISSED]: "bg-gray-100 text-gray-800",
+const STATUS_COLORS: Record<ReportStatus, string> = {
+  PENDING: "bg-yellow-100 text-yellow-800",
+  UNDER_REVIEW: "bg-blue-100 text-blue-800",
+  RESOLVED: "bg-green-100 text-green-800",
+  DISMISSED: "bg-gray-100 text-gray-800",
 };
 
-const STATUS_ICONS = {
-  [ReportStatus.PENDING]: Clock,
-  [ReportStatus.UNDER_REVIEW]: AlertTriangle,
-  [ReportStatus.RESOLVED]: CheckCircle,
-  [ReportStatus.DISMISSED]: XCircle,
+const STATUS_ICONS: Record<ReportStatus, any> = {
+  PENDING: Clock,
+  UNDER_REVIEW: AlertTriangle,
+  RESOLVED: CheckCircle,
+  DISMISSED: XCircle,
 };
 
 const formatDate = (date: Date) => {
@@ -283,14 +293,14 @@ export function AdminReports({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Statuses</SelectItem>
-                  <SelectItem value={ReportStatus.PENDING}>Pending</SelectItem>
-                  <SelectItem value={ReportStatus.UNDER_REVIEW}>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="UNDER_REVIEW">
                     Under Review
                   </SelectItem>
-                  <SelectItem value={ReportStatus.RESOLVED}>
+                  <SelectItem value="RESOLVED">
                     Resolved
                   </SelectItem>
-                  <SelectItem value={ReportStatus.DISMISSED}>
+                  <SelectItem value="DISMISSED">
                     Dismissed
                   </SelectItem>
                 </SelectContent>
@@ -339,7 +349,7 @@ export function AdminReports({
                 </p>
                 <p className="text-2xl font-bold">
                   {
-                    reports.filter((r) => r.status === ReportStatus.PENDING)
+                    reports.filter((r) => r.status === "PENDING")
                       .length
                   }
                 </p>

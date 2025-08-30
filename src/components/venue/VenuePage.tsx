@@ -40,7 +40,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import Navbar from "@/components/home/Navbar";
+import { Navbar } from "@/components/home/Navbar";
 import {
   ErrorBoundary,
   VenueErrorFallback,

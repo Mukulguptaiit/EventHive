@@ -15,7 +15,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { loginSchema, type LoginFormData } from "@/schemas/auth";
-import { authClient } from "@/lib/auth-client";
 
 interface LoginFormProps {
   className?: string;
@@ -44,17 +43,29 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      const result = await authClient.signIn.email({
-        email: data.email,
-        password: data.password,
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
       });
 
-      if (result.error) {
-        onError?.(result.error.message ?? "Login failed");
+      const result = await response.json();
+
+      if (!response.ok) {
+        onError?.(result.error ?? "Login failed");
         return;
       }
 
-      onSuccess?.();
+      if (result.success) {
+        onSuccess?.();
+      } else {
+        onError?.(result.error ?? "Login failed");
+      }
     } catch (error) {
       console.error("Login error:", error);
       onError?.(

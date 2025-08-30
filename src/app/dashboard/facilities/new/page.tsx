@@ -15,9 +15,9 @@ export default function NewFacilityPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Create Event</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Create Facility</h1>
           <p className="text-muted-foreground">
-            Add a new event to your portfolio
+            Add a new sports facility to your portfolio
           </p>
         </div>
       </div>

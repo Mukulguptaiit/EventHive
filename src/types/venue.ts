@@ -1,52 +1,45 @@
-// Event and ticket type definitions
+// Venue and sport type definitions
 // These match the Prisma schema but are maintained separately for better control
 
-export enum EventType {
-  WORKSHOP = "WORKSHOP",
-  CONCERT = "CONCERT",
-  SPORTS = "SPORTS",
-  HACKATHON = "HACKATHON",
-  CONFERENCE = "CONFERENCE",
-  SEMINAR = "SEMINAR",
-  WEBINAR = "WEBINAR",
-  MEETUP = "MEETUP",
-  FESTIVAL = "FESTIVAL",
-  EXHIBITION = "EXHIBITION",
-}
-
-export enum TicketType {
-  GENERAL = "GENERAL",
-  VIP = "VIP",
-  STUDENT = "STUDENT",
-  EARLY_BIRD = "EARLY_BIRD",
-  GROUP = "GROUP",
-  PREMIUM = "PREMIUM",
+export enum SportType {
+  BADMINTON = "BADMINTON",
+  TENNIS = "TENNIS",
+  SQUASH = "SQUASH",
+  BASKETBALL = "BASKETBALL",
+  FOOTBALL = "FOOTBALL",
+  CRICKET = "CRICKET",
+  TABLE_TENNIS = "TABLE_TENNIS",
+  VOLLEYBALL = "VOLLEYBALL",
 }
 
 export enum VenueType {
   INDOOR = "INDOOR",
   OUTDOOR = "OUTDOOR",
-  VIRTUAL = "VIRTUAL",
-  HYBRID = "HYBRID",
+  MIXED = "MIXED",
 }
 
-export enum RegistrationStatus {
+export enum BookingStatus {
   CONFIRMED = "CONFIRMED",
-  CANCELLED = "CANCELLED",
-  CHECKED_IN = "CHECKED_IN",
-  NO_SHOW = "NO_SHOW",
-}
-
-export enum EventStatus {
-  DRAFT = "DRAFT",
-  PUBLISHED = "PUBLISHED",
   CANCELLED = "CANCELLED",
   COMPLETED = "COMPLETED",
 }
 
+export enum MatchStatus {
+  OPEN = "OPEN",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum FacilityStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+}
+
 export enum UserRole {
-  ATTENDEE = "ATTENDEE",
-  EVENT_ORGANIZER = "EVENT_ORGANIZER",
+  USER = "USER",
+  FACILITY_OWNER = "FACILITY_OWNER",
   ADMIN = "ADMIN",
 }
 

@@ -29,12 +29,21 @@ export function SessionGuard({
 
     const validateSession = async () => {
       try {
-        // Get session from better-auth client
-        const { data: session, error } = await authClient.getSession();
+        // Get session from our custom endpoint
+        const response = await fetch("/api/auth/session", {
+          credentials: "include",
+        });
 
         if (!isMounted) return;
 
-        if (error || !session?.user) {
+        if (!response.ok || response.status === 401) {
+          router.replace(redirectTo);
+          return;
+        }
+
+        const session = await response.json();
+
+        if (!session?.user) {
           router.replace(redirectTo);
           return;
         }
@@ -45,64 +54,27 @@ export function SessionGuard({
           return;
         }
 
-        // Fetch user profile to get role
-        try {
-          const response = await fetch("/api/profile", {
-            method: "GET",
-            credentials: "include",
-          });
+        // For now, use a default role since our schema doesn't have roles yet
+        const currentUserRole: UserRole = UserRole.USER;
 
-          if (!response.ok) {
-            throw new Error("Failed to fetch user profile");
-          }
+        if (!isMounted) return;
 
-          const profile = await response.json();
-          // Convert string role to UserRole enum - more explicit conversion
-          const roleString = profile.role || "USER";
-          let currentUserRole: UserRole;
+        setUserRole(currentUserRole);
 
-          // Explicit role mapping to ensure proper enum conversion
-          switch (roleString) {
-            case "ADMIN":
-              currentUserRole = UserRole.ADMIN;
-              break;
-            case "FACILITY_OWNER":
-              currentUserRole = UserRole.FACILITY_OWNER;
-              break;
-            case "USER":
-            default:
-              currentUserRole = UserRole.USER;
-              break;
-          }
-
-          if (!isMounted) return;
-
-          setUserRole(currentUserRole);
-
-          if (!requiredRoles.includes(currentUserRole)) {
-            // Redirect based on user role
-            if (
-              currentUserRole === UserRole.FACILITY_OWNER ||
-              currentUserRole === UserRole.ADMIN
-            ) {
-              router.replace("/dashboard");
-            } else {
-              router.replace("/");
-            }
-            return;
-          }
-
-          setIsAuthorized(true);
-        } catch {
-          const fallbackRole: UserRole = UserRole.USER;
-          setUserRole(fallbackRole);
-
-          if (requiredRoles.includes(fallbackRole)) {
-            setIsAuthorized(true);
+        if (!requiredRoles.includes(currentUserRole)) {
+          // Redirect based on user role
+          if (
+            currentUserRole === UserRole.FACILITY_OWNER ||
+            currentUserRole === UserRole.ADMIN
+          ) {
+            router.replace("/dashboard");
           } else {
             router.replace("/");
           }
+          return;
         }
+
+        setIsAuthorized(true);
       } catch (error) {
         console.error("SessionGuard - Session validation error:", error);
         if (isMounted) {

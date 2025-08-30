@@ -1,5 +1,5 @@
 import { SessionGuard } from "@/components/auth/session-guard";
-import Navbar from "@/components/home/Navbar";
+import { Navbar } from "@/components/home/Navbar";
 import { UserRole } from "@/types/venue";
 
 export default function DashboardLayout({

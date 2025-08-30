@@ -1,8 +1,5 @@
 import type { VenueType } from "@/types/venue";
-import type {
-  VenueType as PrismaVenueType,
-  SportType as PrismaSportType,
-} from "@/generated/prisma";
+import type { VenueType as PrismaVenueType, SportType as PrismaSportType } from "@/types/venue";
 
 // Types for the transformed venue data that matches UI expectations
 export interface VenueListItem {
@@ -660,8 +657,8 @@ export function filterVenues(
 
     // Venue type filter
     if (filters.venueType && filters.venueType !== "ALL") {
-      const venueTypeName =
-        VENUE_TYPE_MAPPING[filters.venueType as PrismaVenueType];
+      const key = String(filters.venueType) as keyof typeof VENUE_TYPE_MAPPING;
+      const venueTypeName = VENUE_TYPE_MAPPING[key];
       if (venue.type !== venueTypeName) {
         return false;
       }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Role enum schema matching Prisma enum
-export const roleSchema = z.enum(["ATTENDEE", "EVENT_ORGANIZER", "ADMIN"], {
+export const roleSchema = z.enum(["USER", "FACILITY_OWNER", "ADMIN"], {
   errorMap: () => ({ message: "Please select a valid role" }),
 });
 

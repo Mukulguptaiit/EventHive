@@ -1,17 +1,17 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-type Role = "ATTENDEE" | "EVENT_ORGANIZER" | "ADMIN";
+type Role = "USER" | "FACILITY_OWNER" | "ADMIN";
 
 // Define protected routes and their required roles
 const protectedRoutes: Record<string, Role[]> = {
-  "/dashboard": ["ATTENDEE", "EVENT_ORGANIZER", "ADMIN"],
+  "/dashboard": ["USER", "FACILITY_OWNER", "ADMIN"],
   "/admin": ["ADMIN"],
   "/admin/users": ["ADMIN"],
   "/admin/facilities": ["ADMIN"],
-  "/facility": ["EVENT_ORGANIZER", "ADMIN"],
-  "/profile": ["ATTENDEE", "EVENT_ORGANIZER", "ADMIN"],
-  "/bookings": ["ATTENDEE", "EVENT_ORGANIZER", "ADMIN"],
+  "/facility": ["FACILITY_OWNER", "ADMIN"],
+  "/profile": ["USER", "FACILITY_OWNER", "ADMIN"],
+  "/bookings": ["USER", "FACILITY_OWNER", "ADMIN"],
 };
 
 export async function middleware(request: NextRequest) {

@@ -1,7 +1,35 @@
-To build EventHive, a comprehensive event management platform where organizers can easily
-create, publish, and manage events with flexible ticketing and promotions, while attendees can
-seamlessly discover, register, pay, and receive tickets via Email/WhatsApp along with timely
-reminders and smooth check-in experiences.
+# EventHive – Where Events Come Alive
+
+A comprehensive event management platform where organizers can easily create, publish, and manage events with flexible ticketing and promotions, while attendees can seamlessly discover, register, pay, and receive tickets via Email/WhatsApp along with timely reminders and smooth check-in experiences.
+
+## 🎉 Features
+
+### For Event Organizers
+
+- **Event Creation & Publishing**: Create events with rich details, media, and flexible ticketing options
+- **Ticket Management**: Multiple ticket types (General, VIP, Student, Early Bird) with pricing controls
+- **Promotional Tools**: Create discount codes, early bird offers, and referral rewards
+- **Analytics Dashboard**: Real-time sales analytics, revenue tracking, and attendee insights
+- **Check-in System**: QR/Barcode scanning for seamless event entry management
+- **Role-based Access**: Admin, Event Manager, and Volunteer permissions
+
+### For Attendees
+
+- **Event Discovery**: Browse and search events by category, date, location, and price
+- **Smart Booking**: Multiple ticket booking with per-user limits and secure payments
+- **Ticket Delivery**: Auto-generated tickets with QR codes via Email/WhatsApp
+- **Notifications**: Automated reminders (24h and 1h before events)
+- **Loyalty Program**: Earn points and rewards for repeat participation
+- **Social Sharing**: Share events on WhatsApp, Instagram, Twitter, Facebook
+
+### Technical Features
+
+- **Real-time Updates**: Live availability updates and booking confirmations
+- **Responsive Design**: Mobile-first design that works on all devices
+- **Smart Filtering**: Advanced search with multiple criteria and sorting options
+- **Payment Integration**: Razorpay payment gateway with UPI, cards, net banking
+- **QR Code Generation**: Automatic ticket generation with unique QR codes
+- **Email/WhatsApp Integration**: Multi-channel ticket delivery and notifications
 
 ## 🛠️ Tech Stack
 
@@ -25,6 +53,8 @@ reminders and smooth check-in experiences.
 
 - **Razorpay** - Payment gateway integration
 - **Email Verification** - Secure user onboarding
+- **WhatsApp Business API** - Ticket delivery and notifications
+- **QR Code Generation** - Unique ticket identification
 
 ### Development Tools
 
@@ -41,14 +71,15 @@ reminders and smooth check-in experiences.
 - pnpm (recommended) or npm
 - PostgreSQL database
 - Razorpay account for payments
+- WhatsApp Business API (optional)
 
 ### Installation
 
 1. **Clone the repository**
 
    ```bash
-   git clone <repo link>
-   cd <repo>
+   git clone https://github.com/yourusername/eventhive.git
+   cd eventhive
    ```
 
 2. **Install dependencies**
@@ -62,18 +93,23 @@ reminders and smooth check-in experiences.
 
    ```env
    # Database
-   DATABASE_URL="postgresql://username:password@localhost:5432/quickcourt"
+   DATABASE_URL="postgresql://username:password@localhost:5432/eventhive"
 
-   # Better Auth
-   BETTER_AUTH_SECRET="your-auth-secret-key"
-   BETTER_AUTH_URL="http://localhost:3000"
+  # Better Auth
+  # Use a 64-char hex string, e.g. run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  BETTER_AUTH_SECRET="<64-char-hex-secret>"
+  BETTER_AUTH_URL="http://localhost:4000"
 
    # Razorpay
    NEXT_PUBLIC_RAZORPAY_KEY_ID="your-razorpay-key-id"
    RAZORPAY_KEY_SECRET="your-razorpay-secret"
 
-   # Email (for verification)
+   # Email (for verification and tickets)
    RESEND_API_KEY="your-resend-api-key"
+
+   # WhatsApp Business API (optional)
+   WHATSAPP_API_TOKEN="your-whatsapp-token"
+   WHATSAPP_PHONE_NUMBER_ID="your-phone-number-id"
    ```
 
 4. **Database Setup**
@@ -86,7 +122,7 @@ reminders and smooth check-in experiences.
    pnpm prisma db push
 
    # Seed the database (optional)
-   pnpm tsx scripts/seed-basic.ts
+   pnpm tsx scripts/seed-events.ts
    ```
 
 5. **Start Development Server**
@@ -102,23 +138,27 @@ reminders and smooth check-in experiences.
 ```
 src/
 ├── actions/           # Server actions for data fetching
+│   ├── event-actions.ts
 │   ├── booking-actions.ts
-│   └── venue-actions.ts
+│   ├── ticket-actions.ts
+│   └── payment-actions.ts
 ├── app/              # Next.js App Router pages
 │   ├── api/          # API routes
 │   ├── auth/         # Authentication pages
-│   ├── dashboard/    # Venue owner dashboard
-│   ├── profile/      # User profile pages
-│   └── venues/       # Venue pages
+│   ├── dashboard/    # Organizer dashboard
+│   ├── events/       # Event pages
+│   └── profile/      # User profile pages
 ├── components/       # React components
 │   ├── auth/         # Authentication components
+│   ├── events/       # Event-related components
 │   ├── forms/        # Form components
 │   ├── home/         # Homepage components
 │   ├── ui/           # Reusable UI components
-│   └── venue/        # Venue-specific components
+│   └── dashboard/    # Dashboard components
 ├── lib/              # Utility libraries
 │   ├── auth.ts       # Better Auth configuration
 │   ├── prisma.ts     # Database client
+│   ├── qr-generator.ts # QR code generation
 │   └── utils.ts      # Helper functions
 ├── schemas/          # Validation schemas
 ├── styles/           # Global styles
@@ -129,29 +169,34 @@ prisma/
 
 public/
 └── assets/           # Static images and assets
-    └── sports/       # Sport category images
+    └── events/       # Event category images
 ```
 
 ## 🔧 Key Components
 
-### Venue Booking System
+### Event Management System
 
-- **VenueDetails.tsx**: Main booking interface with slot selection
-- **Time Slot Logic**: Handles consecutive booking and availability checking
-- **Payment Integration**: Razorpay integration with order creation and verification
+- **Event Creation**: Rich form with media uploads, pricing, and scheduling
+- **Ticket Types**: Flexible ticket configuration with benefits and restrictions
+- **Promotional System**: Discount codes, early bird offers, and referral rewards
 
-### Authentication System
+### Booking & Payment System
 
-- **Better Auth**: Secure authentication with email verification
-- **Session Management**: Client-side session handling with automatic redirects
-- **Protected Routes**: Route protection for authenticated users
+- **Secure Booking**: Multi-step booking process with attendee information
+- **Payment Integration**: Razorpay with multiple payment methods
+- **Ticket Generation**: Automatic PDF and QR code generation
 
-### Database Schema
+### Notification System
 
-- **Users & Profiles**: User management with player and owner profiles
-- **Facilities & Courts**: Venue management with multiple courts per facility
-- **Time Slots & Bookings**: Flexible booking system with time slot management
-- **Payments**: Payment tracking and order management
+- **Multi-channel Delivery**: Email, WhatsApp, SMS, and push notifications
+- **Automated Reminders**: 24h and 1h before event notifications
+- **Smart Scheduling**: Intelligent notification timing and delivery
+
+### Check-in System
+
+- **QR Code Scanning**: Fast and secure event entry
+- **Real-time Validation**: Prevent duplicate check-ins
+- **Staff Dashboard**: Volunteer and staff management interface
 
 ## 🎯 API Endpoints
 
@@ -161,15 +206,18 @@ public/
 - `POST /api/auth/signup` - User registration
 - `GET /api/auth/session` - Get current session
 
-### Venues
+### Events
 
-- `GET /api/venues` - Get all venues
-- `GET /api/venues/[id]` - Get venue details
-- `GET /api/venues/[id]/timeslots` - Get available time slots
+- `GET /api/events` - Get all events with filters
+- `POST /api/events` - Create new event
+- `GET /api/events/[id]` - Get event details
+- `PUT /api/events/[id]` - Update event
+- `DELETE /api/events/[id]` - Delete event
 
 ### Bookings
 
 - `POST /api/bookings` - Create new booking
+- `GET /api/bookings/[id]` - Get booking details
 - `PATCH /api/bookings/[id]/cancel` - Cancel booking
 - `GET /api/profile/bookings` - Get user bookings
 
@@ -177,38 +225,52 @@ public/
 
 - `POST /api/payments/create-order` - Create Razorpay order
 - `POST /api/payments/verify` - Verify payment
+- `POST /api/payments/refund` - Process refund
+
+### Notifications
+
+- `POST /api/notifications/send` - Send notification
+- `GET /api/notifications` - Get user notifications
+- `PATCH /api/notifications/[id]/read` - Mark as read
 
 ## 🏗️ Key Features Implementation
 
-### Smart Time Slot Filtering
+### Event Discovery & Search
 
 ```typescript
-// Filters past time slots for today's date
-if (isToday && slot.startTime <= now) {
-  continue;
-}
-```
-
-### Consecutive Booking Logic
-
-```typescript
-// Ensures consecutive slots are from the same court
-const canSelectConsecutiveSlots = (startIndex: number, hours: number) => {
-  const startSlot = timeSlots[startIndex];
-  const sameCourtSlots = timeSlots.filter(
-    (slot) => slot.courtId === startSlot.courtId,
-  );
-  // Check availability for consecutive hours
+// Advanced filtering with multiple criteria
+const filterEvents = (events: Event[], filters: EventFilters) => {
+  return events.filter(event => {
+    if (filters.category && event.category !== filters.category) return false;
+    if (filters.date && event.startDate < filters.date) return false;
+    if (filters.price && event.minPrice > filters.price) return false;
+    if (filters.location && !event.city.includes(filters.location)) return false;
+    return true;
+  });
 };
 ```
 
-### Grouped Slot Display
+### Promotional System
 
 ```typescript
-// Groups duplicate time slots by unique time periods
-const getGroupedTimeSlots = () => {
-  const timeGroups = new Map<string, GroupedSlot>();
-  // Groups slots by time and shows court availability
+// Apply promotional codes with validation
+const applyPromotion = (promotion: Promotion, booking: Booking) => {
+  if (promotion.type === 'percentage') {
+    return booking.totalAmount * (promotion.value / 100);
+  } else if (promotion.type === 'fixed') {
+    return Math.min(promotion.value, promotion.maxDiscount || Infinity);
+  }
+  return 0;
+};
+```
+
+### QR Code Generation
+
+```typescript
+// Generate unique QR codes for tickets
+const generateTicketQR = async (bookingId: string, eventId: string) => {
+  const qrData = JSON.stringify({ bookingId, eventId, timestamp: Date.now() });
+  return await QRCode.toDataURL(qrData);
 };
 ```
 
@@ -229,6 +291,8 @@ BETTER_AUTH_SECRET="secure-production-secret"
 BETTER_AUTH_URL="https://your-domain.com"
 NEXT_PUBLIC_RAZORPAY_KEY_ID="production-razorpay-key"
 RAZORPAY_KEY_SECRET="production-razorpay-secret"
+RESEND_API_KEY="production-resend-key"
+WHATSAPP_API_TOKEN="production-whatsapp-token"
 ```
 
 ## 🧪 Testing
@@ -246,7 +310,63 @@ pnpm test:watch
 pnpm type-check
 ```
 
+## 📱 Mobile Features
+
+- **Progressive Web App**: Installable on mobile devices
+- **Push Notifications**: Real-time event updates and reminders
+- **Offline Support**: Basic functionality without internet
+- **Mobile-optimized UI**: Touch-friendly interface design
+
+## 🔒 Security Features
+
+- **JWT Authentication**: Secure user sessions
+- **Role-based Access Control**: Granular permissions
+- **Input Validation**: Zod schema validation
+- **SQL Injection Protection**: Prisma ORM safety
+- **Rate Limiting**: API abuse prevention
+
+## 🌟 Future Enhancements
+
+- **Live Streaming**: Hybrid event support
+- **Virtual Reality**: Immersive event experiences
+- **AI Recommendations**: Smart event suggestions
+- **Blockchain Tickets**: NFT-based ticketing
+- **Multi-language Support**: Internationalization
+
+## 👥 Team
+
+- **Your Name** - Full Stack Developer - [@yourusername](https://github.com/yourusername)
 
 ## 🙏 Acknowledgments
 
-- **Odoo Hackathon** - For the opportunity and inspiration
+- **EventHive Community** - For feedback and suggestions
+- **Open Source Contributors** - For amazing libraries and tools
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+If you have any questions or need help, please:
+
+- Open an issue on GitHub
+- Contact us at support@eventhive.com
+- Join our Discord community
+
+---
+
+**EventHive** - Where Events Come Alive! 🎉
+Seeded user admin@eventhive.com with password Admin@123
+Seeded user organizer@eventhive.com with password Organizer@123
+Seeded user attendee@eventhive.com with password Attendee@123

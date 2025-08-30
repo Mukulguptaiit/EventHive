@@ -155,13 +155,13 @@ export function FacilitiesList({ facilities, error }: FacilitiesListProps) {
               <Activity className="h-6 w-6 text-gray-400" />
             </div>
             <h3 className="mb-2 text-lg font-medium text-gray-900">
-              No events yet
+              No facilities yet
             </h3>
             <p className="mb-4 text-gray-500">
-              Get started by creating your first event.
+              Get started by creating your first sports facility.
             </p>
             <Button asChild>
-              <Link href="/dashboard/facilities/new">Create Event</Link>
+              <Link href="/dashboard/facilities/new">Create Facility</Link>
             </Button>
           </div>
         </CardContent>

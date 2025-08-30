@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import Navbar from "../home/Navbar";
+import { Navbar } from "../home/Navbar";
 import {
   getVenueById,
   getVenueTimeSlots,
@@ -487,7 +487,7 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
           key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           amount: Math.round(totalAmount * 100), // Convert to paise
           currency: "INR",
-          name: "EventHive",
+          name: "QuickCourt",
           description: `Booking for ${venue.name}`,
           order_id: orderResult.razorpayOrderId,
           handler: async function (response: any) {

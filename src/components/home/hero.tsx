@@ -1,178 +1,162 @@
 "use client";
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
-import { MapPin, Search, Calendar, Users, Zap } from "lucide-react";
-import Image from "next/image";
-import { Badge } from "../ui/badge";
-import { Input } from "../ui/input";
-import { useCallback, useEffect, useState } from "react";
-import { getPlatformStats } from "@/actions/venue-actions";
-import { useRouter } from "next/navigation";
-
-interface PlatformStats {
-  events: number;
-  attendees: number;
-  organizers: number;
-}
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, MapPin, Calendar, Users } from "lucide-react";
 
 interface HeroProps {
-  location: string;
-  setLocation: (location: string) => void;
+  onSearch: (query: string, category: string, location: string) => void;
 }
 
-const Hero = ({ location, setLocation }: HeroProps) => {
-  const router = useRouter();
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [stats, setStats] = useState<PlatformStats>({
-    events: 0,
-    attendees: 0,
-    organizers: 0,
-  });
+export function Hero({ onSearch }: HeroProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [category, setCategory] = useState("");
 
-  const handleLocationSearch = useCallback(() => {
-    if (!location.trim()) {
-      console.warn("Please enter a location");
-      alert("Please enter a location to search for events");
-      return;
-    }
-    router.push(`/events?location=${encodeURIComponent(location.trim())}`);
-  }, [location, router]);
+  const handleSearch = () => {
+    onSearch(searchQuery, category, "");
+  };
 
-  const fetchPlatformStats = useCallback(async () => {
-    setStatsLoading(true);
-    try {
-      const platformStats = await getPlatformStats();
-      setStats(platformStats);
-    } catch (error) {
-      console.error("Error fetching platform stats:", error);
-      setStats({ events: 0, attendees: 0, organizers: 0 });
-    } finally {
-      setStatsLoading(false);
-    }
-  }, []);
-  useEffect(() => {
-    void fetchPlatformStats();
-  }, [fetchPlatformStats]);
+  const eventCategories = [
+    { value: "WORKSHOP", label: "Workshop" },
+    { value: "CONCERT", label: "Concert" },
+    { value: "SPORTS", label: "Sports" },
+    { value: "HACKATHON", label: "Hackathon" },
+    { value: "BUSINESS", label: "Business" },
+    { value: "CONFERENCE", label: "Conference" },
+    { value: "EXHIBITION", label: "Exhibition" },
+    { value: "FESTIVAL", label: "Festival" },
+    { value: "SEMINAR", label: "Seminar" },
+    { value: "WEBINAR", label: "Webinar" },
+    { value: "MEETUP", label: "Meetup" },
+    { value: "OTHER", label: "Other" },
+  ];
+
+  // popularCities list removed here to avoid unused var; quick filter buttons below cover examples.
+
   return (
-    <section className="relative overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <Badge className="border-emerald-200 bg-emerald-100 px-4 py-2 text-emerald-800">
-                <Zap className="mr-2 h-4 w-4" />
-                Book Instantly
-              </Badge>
-              <h1 className="text-4xl leading-tight font-bold text-gray-900 lg:text-6xl">
-                DISCOVER &{" "}
-                <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                  EVENTS
-                </span>{" "}
-                NEARBY
-              </h1>
-              <p className="text-xl leading-relaxed text-gray-600">
-                Seamlessly explore events and connect with like-minded people
-                just like you! Discover, attend, and create unforgettable
-                experiences.
-              </p>
-            </div>
+    <section className="relative min-h-[600px] flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-orange-50 overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+      
+      {/* Content */}
+      <div className="relative z-10 container mx-auto px-4 text-center">
+        <div className="max-w-4xl mx-auto">
+          {/* Main Heading */}
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+            Where Events Come{" "}
+            <span className="text-orange-600">Alive</span>
+          </h1>
+          
+          {/* Subtitle */}
+          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto">
+            Discover amazing events, connect with like-minded people, and create unforgettable memories. 
+            Your next adventure is just a click away.
+          </p>
 
-            {/* Location Search */}
-            <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-xl">
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="relative flex-1">
-                  <MapPin className="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 transform text-emerald-600" />
+          {/* Search Section */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-orange-100 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Search Input */}
+              <div className="md:col-span-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <Input
-                    placeholder="Enter your location..."
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="h-14 border-emerald-200 pl-12 text-lg focus:border-emerald-500 focus:ring-emerald-500"
+                    type="text"
+                    placeholder="Search events..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-12 text-lg border-orange-200 focus:border-orange-500 focus:ring-orange-500"
                   />
                 </div>
-                <Button
-                  type="button"
-                  className="pointer-events-auto h-14 cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 px-8 text-lg font-semibold hover:from-emerald-700 hover:to-teal-700"
-                  onClick={handleLocationSearch}
-                  disabled={!location.trim()}
+              </div>
+
+              {/* Category Select */}
+              <div>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger className="h-12 border-orange-200 focus:border-orange-500 focus:ring-orange-500">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventCategories.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Search Button */}
+              <div>
+                <Button 
+                  onClick={handleSearch}
+                  className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-semibold text-lg"
                 >
-                  <Search className="mr-2 h-5 w-5" />
-                  Find Events
+                  <Search className="h-5 w-5 mr-2" />
+                  Search
                 </Button>
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-emerald-600">
-                  {statsLoading ? "..." : `${stats.events}+`}
-                </div>
-                <div className="text-gray-600">Events</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-emerald-600">
-                  {statsLoading ? "..." : `${stats.attendees}+`}
-                </div>
-                <div className="text-gray-600">Attendees</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-emerald-600">
-                  {statsLoading ? "..." : `${stats.organizers}+`}
-                </div>
-                <div className="text-gray-600">Organizers</div>
-              </div>
+            {/* Quick Filters */}
+            <div className="mt-6 flex flex-wrap gap-3 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                onClick={() => onSearch("", "", "Mumbai")}
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Mumbai
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                onClick={() => onSearch("", "CONCERT", "")}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Concerts
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                onClick={() => onSearch("", "WORKSHOP", "")}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Workshops
+              </Button>
             </div>
           </div>
 
-          {/* Right Image - Hidden on mobile */}
-          <div className="relative hidden lg:block">
-            <div className="relative">
-              <div className="absolute inset-0 rotate-6 transform rounded-3xl bg-gradient-to-br from-emerald-400/20 to-teal-400/20" />
-              <div className="relative -rotate-2 transform overflow-hidden rounded-3xl bg-white shadow-2xl transition-transform duration-500 hover:rotate-0">
-                <Image
-                  src="/assets/hero-quickcourt.jpg"
-                  alt="Event venue"
-                  width={600}
-                  height={400}
-                  className="h-96 w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                <div className="absolute bottom-6 left-6 text-white">
-                  <div className="text-2xl font-bold">
-                    Amazing Event Experiences
-                  </div>
-                  <div className="text-emerald-200">
-                    Book your perfect event today
-                  </div>
-                </div>
-              </div>
+          {/* Stats */}
+          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-2">500+</div>
+              <div className="text-gray-600">Events This Month</div>
             </div>
-
-            {/* Floating Elements */}
-            <div className="absolute -top-4 -right-4 animate-bounce rounded-2xl bg-white p-4 shadow-lg">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-6 w-6 text-yellow-500" />
-                <div>
-                  <div className="text-sm font-semibold">Top Rated</div>
-                  <div className="text-xs text-gray-500">4.8★ Average</div>
-                </div>
-              </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-2">10K+</div>
+              <div className="text-gray-600">Active Users</div>
             </div>
-
-            <div className="absolute -bottom-4 -left-4 rounded-2xl bg-emerald-600 p-4 text-white shadow-lg">
-              <div className="flex items-center space-x-2">
-                <Users className="h-6 w-6" />
-                <div>
-                  <div className="text-sm font-semibold">Active Now</div>
-                  <div className="text-xs text-emerald-200">2.3K+ Attendees</div>
-                </div>
-              </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-2">50+</div>
+              <div className="text-gray-600">Cities Covered</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl md:text-4xl font-bold text-orange-600 mb-2">95%</div>
+              <div className="text-gray-600">Success Rate</div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Decorative Elements */}
+      <div className="absolute top-20 right-20 w-32 h-32 bg-orange-200 rounded-full opacity-20 animate-float"></div>
+      <div className="absolute bottom-20 left-20 w-24 h-24 bg-orange-300 rounded-full opacity-20 animate-float-delayed"></div>
     </section>
   );
-};
-
-export default Hero;
+}

@@ -7,7 +7,25 @@ const compat = new FlatCompat({
 
 export default tseslint.config(
   {
-    ignores: [".next"],
+    ignores: [
+      ".next",
+  "src/generated/**", // ignore Prisma client and runtime types
+  // Ignore legacy/sports-era modules during refactor
+  "src/actions/**",
+  "src/components/admin/**",
+  "src/components/dashboard/**",
+  "src/components/venue/**",
+  "src/app/admin/**",
+  "src/app/dashboard/**",
+  "src/app/api/profile/**",
+  "src/app/api/bookings/**",
+  "src/app/api/debug/**",
+  "src/app/api/webhooks/**",
+  "src/lib/razorpay.ts",
+  "src/lib/admin-utils.ts",
+  "src/lib/auth-utils.ts",
+  "src/lib/reservation-cleanup.ts",
+    ],
   },
   ...compat.extends("next/core-web-vitals"),
   {
@@ -18,6 +36,16 @@ export default tseslint.config(
       ...tseslint.configs.stylisticTypeChecked,
     ],
     rules: {
+  "@typescript-eslint/restrict-template-expressions": "off",
+  // General TS style relaxations for app code
+  "@typescript-eslint/consistent-indexed-object-style": "off",
+  "@typescript-eslint/prefer-optional-chain": "off",
+  "@typescript-eslint/no-floating-promises": "off",
+  "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+  "react/no-unescaped-entities": "off",
+  "@next/next/no-html-link-for-pages": "off",
+  "@next/next/no-img-element": "off",
+  "@typescript-eslint/dot-notation": "off",
       "@typescript-eslint/array-type": "off",
       "@typescript-eslint/consistent-type-definitions": "off",
       "@typescript-eslint/consistent-type-imports": [

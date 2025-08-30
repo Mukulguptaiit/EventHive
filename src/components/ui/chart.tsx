@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 const THEMES = { light: "", dark: ".dark" } as const
 
 export type ChartConfig = {
-  [k in string]: {
+  [k: string]: {
     label?: React.ReactNode
     icon?: React.ComponentType
   } & (
@@ -305,42 +305,33 @@ function ChartLegendContent({
 }
 
 // Helper to extract item config from a payload.
+// Using unknown record here to accommodate Recharts Payload shape in a UI-only helper
+type AnyRecord = Record<string, unknown>
 function getPayloadConfigFromPayload(
   config: ChartConfig,
-  payload: unknown,
+  // Accept unknown here to accommodate Recharts Payload
+  payload: any,
   key: string
 ) {
-  if (typeof payload !== "object" || payload === null) {
-    return undefined
-  }
+  if (!payload || typeof payload !== "object") return undefined
 
+  const rawNested = (payload as AnyRecord)["payload"]
   const payloadPayload =
-    "payload" in payload &&
-    typeof payload.payload === "object" &&
-    payload.payload !== null
-      ? payload.payload
+    typeof rawNested === "object" && rawNested !== null
+      ? (rawNested as AnyRecord)
       : undefined
 
   let configLabelKey: string = key
 
-  if (
-    key in payload &&
-    typeof payload[key as keyof typeof payload] === "string"
-  ) {
-    configLabelKey = payload[key as keyof typeof payload] as string
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === "string"
-  ) {
-    configLabelKey = payloadPayload[
-      key as keyof typeof payloadPayload
-    ] as string
+  const direct = (payload as AnyRecord)[key]
+  if (typeof direct === "string") {
+    configLabelKey = direct
+  } else if (payloadPayload) {
+    const nested = payloadPayload[key]
+    if (typeof nested === "string") configLabelKey = nested
   }
 
-  return configLabelKey in config
-    ? config[configLabelKey]
-    : config[key as keyof typeof config]
+  return config[configLabelKey] ?? config[key]
 }
 
 export {

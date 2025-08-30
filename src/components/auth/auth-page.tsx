@@ -7,7 +7,6 @@ import { OtpVerification } from "@/components/forms/otp-verification";
 import { ForgotPasswordForm } from "@/components/forms/forgot-password-form";
 import { ResetPasswordForm } from "@/components/forms/reset-password-form";
 import { useOAuthCallback } from "@/hooks/use-oauth-callback";
-import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 
 type AuthStep =
@@ -157,16 +156,8 @@ export function AuthPage({ initialStep = "login" }: AuthPageProps) {
     <div className="relative container grid min-h-screen flex-col items-center justify-center lg:max-w-none lg:grid-cols-2 lg:px-0">
       {/* Left side - Branding */}
       <div className="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r">
-        {/* Background Image */}
-        <div className="absolute inset-0">
-          <Image
-            src="/image-auth.png"
-            alt="Sports court background"
-            className="h-full w-full object-cover"
-            fill
-          />
-          <div className="absolute inset-0" />
-        </div>
+  {/* Background Decoration (no external image) */}
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(251,146,60,0.25),transparent_40%),radial-gradient(circle_at_80%_30%,rgba(59,130,246,0.2),transparent_40%),radial-gradient(circle_at_50%_80%,rgba(16,185,129,0.2),transparent_40%)]" />
       </div>
 
       {/* Right side - Auth Forms */}

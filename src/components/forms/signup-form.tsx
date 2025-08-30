@@ -23,7 +23,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { signupSchema, type SignupFormData } from "@/schemas/auth";
-import { authClient } from "@/lib/auth-client";
 import { uploadFileLocally, validateImageFile } from "@/lib/file-upload";
 import Link from "next/link";
 
@@ -43,7 +42,7 @@ export function SignUpForm({ className, onSuccess, onError }: SignUpFormProps) {
       password: "",
       confirmPassword: "",
       fullName: "",
-      role: "ATTENDEE",
+      role: "USER",
     },
   });
 
@@ -64,25 +63,33 @@ export function SignUpForm({ className, onSuccess, onError }: SignUpFormProps) {
         avatarUrl = uploadedFile.url;
       }
 
-      const result = await authClient.signUp.email({
-        email: data.email,
-        password: data.password,
-        name: data.fullName,
-        image: avatarUrl,
-        fetchOptions: {
-          headers: {
-            "X-Signup-Role": data.role, // Pass role in custom header
-          },
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          name: data.fullName,
+          image: avatarUrl,
+          role: data.role,
+        }),
       });
 
-      if (result.error) {
-        onError?.(result.error.message ?? "Failed to create account");
+      const result = await response.json();
+
+      if (!response.ok) {
+        onError?.(result.error ?? "Failed to create account");
         return;
       }
 
-      // Success - user needs to verify email
-      onSuccess?.(data.email);
+      if (result.success) {
+        // Success - user needs to verify email
+        onSuccess?.(data.email);
+      } else {
+        onError?.(result.error ?? "Failed to create account");
+      }
     } catch (error) {
       console.error("Signup error:", error);
       onError?.(
@@ -143,9 +150,9 @@ export function SignUpForm({ className, onSuccess, onError }: SignUpFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="ATTENDEE">Attendee</SelectItem>
-                      <SelectItem value="EVENT_ORGANIZER">
-                        Event Organizer
+                      <SelectItem value="USER">Player</SelectItem>
+                      <SelectItem value="FACILITY_OWNER">
+                        Facility Owner
                       </SelectItem>
                       <SelectItem value="ADMIN">Administrator</SelectItem>
                     </SelectContent>

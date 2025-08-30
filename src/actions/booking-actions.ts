@@ -1,447 +1,425 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { BookingStatus, PaymentStatus } from "@/generated/prisma";
 
-export interface FacilityBooking {
+export interface CreateBookingData {
+  eventId: string;
+  ticketId: string;
+  quantity: number;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone?: string;
+  specialRequests?: string;
+}
+
+export interface EventBooking {
   id: string;
-  startTime: Date;
-  endTime: Date;
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED";
-  totalPrice: number;
-  court: {
+  eventId: string;
+  ticketId: string;
+  quantity: number;
+  totalAmount: number;
+  currency: string;
+  status: BookingStatus;
+  paymentStatus: PaymentStatus;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone?: string;
+  specialRequests?: string;
+  ticketUrl?: string;
+  qrCode?: string;
+  barcode?: string;
+  createdAt: Date;
+  event: {
+    id: string;
+    title: string;
+    startDate: Date;
+    endDate: Date;
+    startTime: string;
+    endTime: string;
+    location: string;
+    city: string;
+    coverImage: string;
+  };
+  ticket: {
     id: string;
     name: string;
-    sportType: string;
-    facility: {
-      name: string;
-      address: string;
-    };
+    type: string;
+    price: number;
   };
-  player: {
-    user: {
-      name: string;
-      email: string;
-    };
-    phoneNumber: string | null;
+  organizer: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    displayName?: string;
   };
-  createdAt: Date;
 }
 
-/**
- * Get all bookings for facilities owned by the current user
- */
-export async function getFacilityBookings(): Promise<FacilityBooking[]> {
+export async function createEventBooking(data: CreateBookingData, userId: string) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    // Get facilities owned by the current user
-    const facilities = await prisma.facility.findMany({
-      where: {
-        owner: {
-          userId: session.user.id,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    const facilityIds = facilities.map((f) => f.id);
-
-    if (facilityIds.length === 0) {
-      return [];
-    }
-
-    // Get all bookings for the owner's facilities
-    const bookings = await prisma.booking.findMany({
-      where: {
-        timeSlot: {
-          court: {
-            facilityId: {
-              in: facilityIds,
-            },
-          },
-        },
-      },
-      include: {
-        timeSlot: {
-          include: {
-            court: {
-              include: {
-                facility: {
-                  select: {
-                    name: true,
-                    address: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        player: {
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    // Transform the data to match the interface
-    const transformedBookings: FacilityBooking[] = bookings.map((booking) => ({
-      id: booking.id,
-      startTime: booking.timeSlot.startTime,
-      endTime: booking.timeSlot.endTime,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      court: {
-        id: booking.timeSlot.court.id,
-        name: booking.timeSlot.court.name,
-        sportType: booking.timeSlot.court.sportType,
-        facility: {
-          name: booking.timeSlot.court.facility.name,
-          address: booking.timeSlot.court.facility.address,
-        },
-      },
-      player: {
-        user: {
-          name: booking.player.user.name,
-          email: booking.player.user.email,
-        },
-        phoneNumber: booking.player.phoneNumber,
-      },
-      createdAt: booking.createdAt,
-    }));
-
-    return transformedBookings;
-  } catch (error) {
-    console.error("Error fetching facility bookings:", error);
-    throw new Error("Failed to fetch bookings");
-  }
-}
-
-/**
- * Get booking statistics for facility owner dashboard
- */
-export async function getBookingStats(): Promise<{
-  totalBookings: number;
-  upcomingBookings: number;
-  completedBookings: number;
-  cancelledBookings: number;
-  totalRevenue: number;
-  monthlyRevenue: number;
-}> {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    // Get facilities owned by the current user
-    const facilities = await prisma.facility.findMany({
-      where: {
-        owner: {
-          userId: session.user.id,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    const facilityIds = facilities.map((f) => f.id);
-
-    if (facilityIds.length === 0) {
-      return {
-        totalBookings: 0,
-        upcomingBookings: 0,
-        completedBookings: 0,
-        cancelledBookings: 0,
-        totalRevenue: 0,
-        monthlyRevenue: 0,
-      };
-    }
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    // Get all bookings for statistics
-    const [
-      totalBookings,
-      upcomingBookings,
-      completedBookings,
-      cancelledBookings,
-      revenueData,
-      monthlyRevenueData,
-    ] = await Promise.all([
-      // Total bookings
-      prisma.booking.count({
-        where: {
-          timeSlot: {
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-        },
+    // Get the event and ticket details
+    const [event, ticket] = await Promise.all([
+      prisma.event.findUnique({
+        where: { id: data.eventId },
+        include: { organizer: true },
       }),
-      // Upcoming bookings
-      prisma.booking.count({
-        where: {
-          timeSlot: {
-            startTime: {
-              gte: now,
-            },
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-          status: "CONFIRMED",
-        },
-      }),
-      // Completed bookings
-      prisma.booking.count({
-        where: {
-          timeSlot: {
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-          status: "COMPLETED",
-        },
-      }),
-      // Cancelled bookings
-      prisma.booking.count({
-        where: {
-          timeSlot: {
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-          status: "CANCELLED",
-        },
-      }),
-      // Total revenue
-      prisma.booking.aggregate({
-        where: {
-          timeSlot: {
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-          status: {
-            in: ["CONFIRMED", "COMPLETED"],
-          },
-        },
-        _sum: {
-          totalPrice: true,
-        },
-      }),
-      // Monthly revenue
-      prisma.booking.aggregate({
-        where: {
-          timeSlot: {
-            court: {
-              facilityId: {
-                in: facilityIds,
-              },
-            },
-          },
-          status: {
-            in: ["CONFIRMED", "COMPLETED"],
-          },
-          createdAt: {
-            gte: startOfMonth,
-          },
-        },
-        _sum: {
-          totalPrice: true,
-        },
+      prisma.ticket.findUnique({
+        where: { id: data.ticketId },
       }),
     ]);
 
-    return {
-      totalBookings,
-      upcomingBookings,
-      completedBookings,
-      cancelledBookings,
-      totalRevenue: revenueData._sum.totalPrice || 0,
-      monthlyRevenue: monthlyRevenueData._sum.totalPrice || 0,
-    };
+    if (!event || !ticket) {
+      return { success: false, error: 'Event or ticket not found' };
+    }
+
+    if (event.status !== 'PUBLISHED') {
+      return { success: false, error: 'Event is not published' };
+    }
+
+    if (!ticket.isActive) {
+      return { success: false, error: 'Ticket is not available' };
+    }
+
+    if (ticket.availableQuantity < data.quantity) {
+      return { success: false, error: 'Not enough tickets available' };
+    }
+
+    if (data.quantity > ticket.maxPerUser) {
+      return { success: false, error: `Maximum ${ticket.maxPerUser} tickets per user allowed` };
+    }
+
+    const totalAmount = ticket.price * data.quantity;
+
+    // Create the booking
+    const booking = await prisma.booking.create({
+      data: {
+        eventId: data.eventId,
+        ticketId: data.ticketId,
+        userId,
+        organizerId: event.organizerId,
+        quantity: data.quantity,
+        totalAmount,
+        currency: ticket.currency,
+        status: BookingStatus.PENDING,
+        paymentStatus: PaymentStatus.PENDING,
+        attendeeName: data.attendeeName,
+        attendeeEmail: data.attendeeEmail,
+        attendeePhone: data.attendeePhone,
+        specialRequests: data.specialRequests,
+      },
+    });
+
+    // Update ticket availability
+    await prisma.ticket.update({
+      where: { id: data.ticketId },
+      data: {
+        soldQuantity: { increment: data.quantity },
+        availableQuantity: { decrement: data.quantity },
+      },
+    });
+
+    // Update event attendee count
+    await prisma.event.update({
+      where: { id: data.eventId },
+      data: {
+        currentAttendees: { increment: data.quantity },
+      },
+    });
+
+    return { success: true, bookingId: booking.id };
   } catch (error) {
-    console.error("Error fetching booking stats:", error);
-    throw new Error("Failed to fetch booking statistics");
+    console.error('Error creating booking:', error);
+    return { success: false, error: 'Failed to create booking' };
   }
 }
 
-/**
- * Update booking status (for facility owners)
- */
+export async function getUserBookings(userId: string) {
+  try {
+    const bookings = await prisma.booking.findMany({
+      where: { userId },
+      include: {
+        event: {
+          select: {
+            id: true,
+            title: true,
+            startDate: true,
+            endDate: true,
+            startTime: true,
+            endTime: true,
+            location: true,
+            city: true,
+            coverImage: true,
+          },
+        },
+        ticket: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            price: true,
+          },
+        },
+        organizer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return bookings as EventBooking[];
+  } catch (error) {
+    console.error('Error fetching user bookings:', error);
+    throw new Error('Failed to fetch user bookings');
+  }
+}
+
+export async function getEventBookings(eventId: string, organizerId: string) {
+  try {
+    // Verify the user is the organizer
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { organizerId: true },
+    });
+
+    if (!event || event.organizerId !== organizerId) {
+      throw new Error('Unauthorized access');
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: { eventId },
+      include: {
+        ticket: {
+          select: {
+            name: true,
+            type: true,
+            price: true,
+          },
+        },
+        attendee: {
+          select: {
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return bookings;
+  } catch (error) {
+    console.error('Error fetching event bookings:', error);
+    throw new Error('Failed to fetch event bookings');
+  }
+}
+
 export async function updateBookingStatus(
   bookingId: string,
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED",
-): Promise<void> {
+  status: BookingStatus,
+  userId: string
+) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
-    }
-
-    // Verify the booking belongs to the user's facility
-    const booking = await prisma.booking.findFirst({
-      where: {
-        id: bookingId,
-        timeSlot: {
-          court: {
-            facility: {
-              owner: {
-                userId: session.user.id,
-              },
-            },
-          },
-        },
-      },
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { event: true },
     });
 
     if (!booking) {
-      throw new Error("Booking not found or unauthorized");
+      return { success: false, error: 'Booking not found' };
     }
 
-    // Update the booking status
-    await prisma.booking.update({
-      where: {
-        id: bookingId,
-      },
-      data: {
-        status,
-        updatedAt: new Date(),
-      },
+    // Check if user is the organizer or the attendee
+    if (booking.userId !== userId && booking.organizerId !== userId) {
+      return { success: false, error: 'Unauthorized access' };
+    }
+
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status },
     });
+
+    return { success: true, booking: updatedBooking };
   } catch (error) {
-    console.error("Error updating booking status:", error);
-    throw new Error("Failed to update booking status");
+    console.error('Error updating booking status:', error);
+    return { success: false, error: 'Failed to update booking status' };
   }
 }
 
-/**
- * Cancel a booking (for players)
- */
-export async function cancelPlayerBooking(bookingId: string): Promise<{
-  success: boolean;
-  error?: string;
-}> {
+export async function cancelBooking(bookingId: string, userId: string, reason?: string) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session?.user?.id) {
-      return { success: false, error: "Unauthorized" };
-    }
-
-    // Get player profile
-    const playerProfile = await prisma.playerProfile.findUnique({
-      where: { userId: session.user.id },
-    });
-
-    if (!playerProfile) {
-      return { success: false, error: "Player profile not found" };
-    }
-
-    // Find the booking and verify ownership
-    const booking = await prisma.booking.findFirst({
-      where: {
-        id: bookingId,
-        playerId: playerProfile.id,
-      },
-      include: {
-        timeSlot: {
-          include: {
-            court: {
-              include: {
-                facility: true,
-              },
-            },
-          },
-        },
-        paymentOrder: true,
-      },
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { event: true, ticket: true },
     });
 
     if (!booking) {
-      return { success: false, error: "Booking not found" };
+      return { success: false, error: 'Booking not found' };
     }
 
-    // Check if booking can be cancelled (not already cancelled or completed)
-    if (booking.status === "CANCELLED") {
-      return { success: false, error: "Booking is already cancelled" };
+    // Check if user is the attendee
+    if (booking.userId !== userId) {
+      return { success: false, error: 'Unauthorized access' };
     }
 
-    if (booking.status === "COMPLETED") {
-      return { success: false, error: "Cannot cancel completed booking" };
+    if (booking.status === BookingStatus.CANCELLED) {
+      return { success: false, error: 'Booking is already cancelled' };
     }
 
-    // Check if booking is in the future (optional cancellation policy)
-    const bookingDateTime = new Date(booking.timeSlot.startTime);
-    const now = new Date();
-    const minutesDifference =
-      (bookingDateTime.getTime() - now.getTime()) / (1000 * 60);
-
-    // Allow cancellation up to 30 minutes before the booking
-    if (minutesDifference < 30) {
-      return {
-        success: false,
-        error: "Cannot cancel booking less than 30 minutes before start time",
-      };
+    if (booking.status === BookingStatus.COMPLETED) {
+      return { success: false, error: 'Cannot cancel completed booking' };
     }
 
-    // Update booking status to cancelled
-    await prisma.booking.update({
+    // Update booking status
+    const updatedBooking = await prisma.booking.update({
       where: { id: bookingId },
       data: {
-        status: "CANCELLED",
+        status: BookingStatus.CANCELLED,
         cancelledAt: new Date(),
-        cancellationReason: "Cancelled by player",
-        updatedAt: new Date(),
+        cancellationReason: reason,
       },
     });
 
-    return { success: true };
+    // Update ticket availability
+    await prisma.ticket.update({
+      where: { id: booking.ticketId },
+      data: {
+        soldQuantity: { decrement: booking.quantity },
+        availableQuantity: { increment: booking.quantity },
+      },
+    });
+
+    // Update event attendee count
+    await prisma.event.update({
+      where: { id: booking.eventId },
+      data: {
+        currentAttendees: { decrement: booking.quantity },
+      },
+    });
+
+    return { success: true, booking: updatedBooking };
   } catch (error) {
-    console.error("Error cancelling booking:", error);
+    console.error('Error cancelling booking:', error);
+    return { success: false, error: 'Failed to cancel booking' };
+  }
+}
+
+export async function getBookingStats(eventId?: string, organizerId?: string) {
+  try {
+    const where: any = {};
+    
+    if (eventId) {
+      where.eventId = eventId;
+    }
+    
+    if (organizerId) {
+      where.organizerId = organizerId;
+    }
+
+    const [totalBookings, confirmedBookings, completedBookings, cancelledBookings] = await Promise.all([
+      prisma.booking.count({ where }),
+      prisma.booking.count({ where: { ...where, status: BookingStatus.CONFIRMED } }),
+      prisma.booking.count({ where: { ...where, status: BookingStatus.COMPLETED } }),
+      prisma.booking.count({ where: { ...where, status: BookingStatus.CANCELLED } }),
+    ]);
+
+    const revenueData = await prisma.booking.aggregate({
+      where: { ...where, status: { in: [BookingStatus.CONFIRMED, BookingStatus.COMPLETED] } },
+      _sum: { totalAmount: true },
+    });
+
+    const totalRevenue = revenueData._sum.totalAmount || 0;
+
     return {
-      success: false,
-      error: "Failed to cancel booking. Please try again.",
+      totalBookings,
+      confirmedBookings,
+      completedBookings,
+      cancelledBookings,
+      totalRevenue,
     };
+  } catch (error) {
+    console.error('Error fetching booking stats:', error);
+    throw new Error('Failed to fetch booking stats');
+  }
+}
+
+export async function generateTicketQR(bookingId: string) {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { event: true, ticket: true },
+    });
+
+    if (!booking) {
+      return { success: false, error: 'Booking not found' };
+    }
+
+    // Generate QR code data
+    const qrData = {
+      bookingId: booking.id,
+      eventId: booking.eventId,
+      ticketId: booking.ticketId,
+      attendeeName: booking.attendeeName,
+      timestamp: Date.now(),
+    };
+
+    // Update booking with QR code
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { qrCode: JSON.stringify(qrData) },
+    });
+
+    return { success: true, qrData };
+  } catch (error) {
+    console.error('Error generating QR code:', error);
+    return { success: false, error: 'Failed to generate QR code' };
+  }
+}
+
+export async function checkInAttendee(bookingId: string, checkedInBy: string) {
+  try {
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { event: true },
+    });
+
+    if (!booking) {
+      return { success: false, error: 'Booking not found' };
+    }
+
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      return { success: false, error: 'Booking is not confirmed' };
+    }
+
+    // Check if already checked in
+    const existingCheckIn = await prisma.checkIn.findUnique({
+      where: { bookingId },
+    });
+
+    if (existingCheckIn) {
+      return { success: false, error: 'Attendee already checked in' };
+    }
+
+    // Create check-in record
+    const checkIn = await prisma.checkIn.create({
+      data: {
+        eventId: booking.eventId,
+        bookingId: booking.id,
+        userId: booking.userId,
+        checkedInBy,
+        method: 'qr',
+        location: 'Main Entrance',
+      },
+    });
+
+    return { success: true, checkIn };
+  } catch (error) {
+    console.error('Error checking in attendee:', error);
+    return { success: false, error: 'Failed to check in attendee' };
   }
 }

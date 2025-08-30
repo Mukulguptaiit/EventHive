@@ -1,143 +1,351 @@
 "use client";
-import { getEventCategories } from "@/actions/venue-actions";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import { Card } from "../ui/card";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Users,
+  Zap,
+  TrendingUp,
+  Star,
+  Briefcase,
+  Presentation,
+  Palette,
+  Heart,
+  BookOpen,
+  Video,
+  Coffee,
+} from "lucide-react";
 
 interface EventCategory {
   name: string;
-  image: string;
-  events: number;
+  icon: React.ComponentType<any>;
+  count: number;
+  color: string;
+  description: string;
+  value: string;
 }
 
-// Event category image mapping
-const EVENT_IMAGE_MAP: Record<string, string> = {
-  Workshop: "/assets/sports/tennis.jpg", // Placeholder
-  Concert: "/assets/sports/badminton.jpg", // Placeholder
-  Sports: "/assets/sports/football.jpg",
-  Hackathon: "/assets/sports/basketball.jpg", // Placeholder
-  Conference: "/assets/sports/cricket.jpg", // Placeholder
-  Seminar: "/assets/sports/swimming.jpg", // Placeholder
-  Webinar: "/assets/sports/tabletennis.jpg", // Placeholder
-  Meetup: "/assets/sports/volleyball.jpg", // Placeholder
-  Festival: "/assets/sports/squash.jpg", // Placeholder
-  Exhibition: "/assets/sports/tennis.jpg", // Placeholder
-};
+interface EventCategoriesProps {
+  onCategorySelect?: (category: string) => void;
+}
 
-// Function to get event image with fallback
-const getEventImage = (eventName: string, originalImage?: string): string => {
-  // If there's an original image and it's not placeholder, use it
-  if (originalImage && !originalImage.includes("placeholder")) {
-    return originalImage;
-  }
+export function EventCategories({ onCategorySelect }: EventCategoriesProps) {
+  const [categories, setCategories] = useState<EventCategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Try to find exact match in the map
-  const exactMatch = EVENT_IMAGE_MAP[eventName];
-  if (exactMatch) {
-    return exactMatch;
-  }
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        // Fetch categories with event counts
+        const response = await fetch('/api/events/categories');
+        if (response.ok) {
+          const data = await response.json();
+          const mapped = mapApiCategoriesToView(data.categories || []);
+          setCategories(mapped.length ? mapped : getSampleCategories());
+        } else {
+          // Fallback to sample data
+          setCategories(getSampleCategories());
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Fallback to sample data
+        setCategories(getSampleCategories());
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Try to find partial match (case insensitive)
-  const partialMatch = Object.keys(EVENT_IMAGE_MAP).find(
-    (key) =>
-      key.toLowerCase().includes(eventName.toLowerCase()) ||
-      eventName.toLowerCase().includes(key.toLowerCase()),
-  );
+    fetchCategories();
+  }, []);
 
-  if (partialMatch) {
-    return EVENT_IMAGE_MAP[partialMatch];
-  }
+  // Map API result [{ category: string, count: number }] to EventCategory view model
+  const mapApiCategoriesToView = (
+    apiCategories: Array<{ category: string; count: number }>,
+  ): EventCategory[] => {
+    const meta: Record<string, Pick<EventCategory, "name" | "icon" | "color" | "description" | "value">> = {
+      WORKSHOP: {
+        name: "Workshop",
+        icon: Users,
+        color: "bg-blue-500",
+        description: "Learn new skills and gain knowledge",
+        value: "WORKSHOP",
+      },
+      CONCERT: {
+        name: "Concert",
+        icon: Zap,
+        color: "bg-purple-500",
+        description: "Live music and entertainment",
+        value: "CONCERT",
+      },
+      SPORTS: {
+        name: "Sports",
+        icon: TrendingUp,
+        color: "bg-green-500",
+        description: "Athletic competitions and games",
+        value: "SPORTS",
+      },
+      HACKATHON: {
+        name: "Hackathon",
+        icon: Zap,
+        color: "bg-orange-500",
+        description: "Coding challenges and innovation",
+        value: "HACKATHON",
+      },
+      BUSINESS: {
+        name: "Business",
+        icon: Briefcase,
+        color: "bg-indigo-500",
+        description: "Networking and business events",
+        value: "BUSINESS",
+      },
+      CONFERENCE: {
+        name: "Conference",
+        icon: Presentation,
+        color: "bg-red-500",
+        description: "Professional development and learning",
+        value: "CONFERENCE",
+      },
+      EXHIBITION: {
+        name: "Exhibition",
+        icon: Palette,
+        color: "bg-yellow-500",
+        description: "Art and creative showcases",
+        value: "EXHIBITION",
+      },
+      FESTIVAL: {
+        name: "Festival",
+        icon: Heart,
+        color: "bg-pink-500",
+        description: "Cultural celebrations and fun",
+        value: "FESTIVAL",
+      },
+      SEMINAR: {
+        name: "Seminar",
+        icon: BookOpen,
+        color: "bg-teal-500",
+        description: "Educational sessions and talks",
+        value: "SEMINAR",
+      },
+      WEBINAR: {
+        name: "Webinar",
+        icon: Video,
+        color: "bg-cyan-500",
+        description: "Online learning and discussions",
+        value: "WEBINAR",
+      },
+      MEETUP: {
+        name: "Meetup",
+        icon: Coffee,
+        color: "bg-gray-500",
+        description: "Casual networking and socializing",
+        value: "MEETUP",
+      },
+      OTHER: {
+        name: "Other",
+        icon: Star,
+        color: "bg-gray-400",
+        description: "Miscellaneous events",
+        value: "OTHER",
+      },
+    };
 
-  // Default fallback
-  return "/assets/sports/badminton.jpg";
-};
+    // Build with fallback icon/info for any unknown enum values and dedupe by value
+    const map = new Map<string, EventCategory>();
+    for (const { category, count } of apiCategories) {
+      const key = String(category).toUpperCase();
+      const base = meta[key] ?? {
+        name: key.charAt(0) + key.slice(1).toLowerCase(),
+        icon: Users,
+        color: "bg-gray-400",
+        description: "Browse events in this category",
+        value: key,
+      };
+      const existing = map.get(base.value);
+      map.set(base.value, {
+        ...base,
+        count: (existing?.count ?? 0) + count,
+      });
+    }
+    return Array.from(map.values());
+  };
 
-const EventCategories = () => {
-  const [eventCategories, setEventCategories] = useState<EventCategory[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  
-  const fetchEventCategories = async () => {
-    setEventsLoading(true);
-    try {
-      const categories = await getEventCategories();
-      const formattedCategories = categories.map((cat) => ({
-        name: cat.name,
-        image: cat.image,
-        events: cat.events,
-      }));
-      setEventCategories(formattedCategories);
-    } catch (error) {
-      console.error("Error fetching event categories:", error);
-      setEventCategories([]);
-    } finally {
-      setEventsLoading(false);
+  const getSampleCategories = (): EventCategory[] => [
+    {
+      name: "Workshop",
+      icon: Users,
+      count: 45,
+      color: "bg-blue-500",
+      description: "Learn new skills and gain knowledge",
+      value: "WORKSHOP"
+    },
+    {
+      name: "Concert",
+      icon: Zap,
+      count: 32,
+      color: "bg-purple-500",
+      description: "Live music and entertainment",
+      value: "CONCERT"
+    },
+    {
+      name: "Sports",
+      icon: TrendingUp,
+      count: 28,
+      color: "bg-green-500",
+      description: "Athletic competitions and games",
+      value: "SPORTS"
+    },
+    {
+      name: "Hackathon",
+      icon: Zap,
+      count: 15,
+      color: "bg-orange-500",
+      description: "Coding challenges and innovation",
+      value: "HACKATHON"
+    },
+    {
+      name: "Business",
+      icon: Briefcase,
+      count: 38,
+      color: "bg-indigo-500",
+      description: "Networking and business events",
+      value: "BUSINESS"
+    },
+    {
+      name: "Conference",
+      icon: Presentation,
+      count: 25,
+      color: "bg-red-500",
+      description: "Professional development and learning",
+      value: "CONFERENCE"
+    },
+    {
+      name: "Exhibition",
+      icon: Palette,
+      count: 18,
+      color: "bg-yellow-500",
+      description: "Art and creative showcases",
+      value: "EXHIBITION"
+    },
+    {
+      name: "Festival",
+      icon: Heart,
+      count: 22,
+      color: "bg-pink-500",
+      description: "Cultural celebrations and fun",
+      value: "FESTIVAL"
+    },
+    {
+      name: "Seminar",
+      icon: BookOpen,
+      count: 31,
+      color: "bg-teal-500",
+      description: "Educational sessions and talks",
+      value: "SEMINAR"
+    },
+    {
+      name: "Webinar",
+      icon: Video,
+      count: 42,
+      color: "bg-cyan-500",
+      description: "Online learning and discussions",
+      value: "WEBINAR"
+    },
+    {
+      name: "Meetup",
+      icon: Coffee,
+      count: 35,
+      color: "bg-gray-500",
+      description: "Casual networking and socializing",
+      value: "MEETUP"
+    },
+    {
+      name: "Other",
+      icon: Star,
+      count: 12,
+      color: "bg-gray-400",
+      description: "Miscellaneous events",
+      value: "OTHER"
+    }
+  ];
+
+  const handleCategoryClick = (category: string) => {
+    if (onCategorySelect) {
+      onCategorySelect(category);
     }
   };
-  
-  useEffect(() => {
-    void fetchEventCategories();
-  }, []);
-  
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-96 mx-auto"></div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="h-20 bg-gray-200 rounded-lg mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2 mx-auto"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="bg-gradient-to-br from-gray-50 to-emerald-50 py-16 lg:py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 text-3xl font-bold text-gray-900 lg:text-4xl">
-            Popular Event Types
-          </h2>
-          <p className="text-lg text-gray-600">
-            Choose your favorite event type and discover amazing experiences
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Browse by Category</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Discover events that match your interests. From workshops to concerts, 
+            sports to business events - find exactly what you're looking for.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
-          {eventsLoading ? (
-            // Loading skeletons
-            Array.from({ length: 6 }).map((_, index) => (
-              <Card
-                key={index}
-                className="animate-pulse overflow-hidden border-0"
-              >
-                <div className="h-32 bg-gray-200" />
-              </Card>
-            ))
-          ) : eventCategories.length === 0 ? (
-            // Empty state
-            <div className="col-span-full py-12 text-center">
-              <div className="text-gray-500">
-                No event categories available
-              </div>
-            </div>
-          ) : (
-            eventCategories.map((event) => (
-              <Card
-                key={event.name}
-                className="group cursor-pointer overflow-hidden border-0 transition-all duration-300 hover:shadow-xl"
-              >
-                <div className={`relative h-32`}>
-                  <Image
-                    src={getEventImage(event.name, event.image)}
-                    alt={event.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-black/30 transition-colors group-hover:bg-black/20" />
-                  <div className="absolute bottom-3 left-3 text-white">
-                    <div className="text-lg font-bold drop-shadow-lg">
-                      {event.name}
-                    </div>
-                    <div className="text-xs opacity-90 drop-shadow-md">
-                      {event.events} events
-                    </div>
-                  </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          {categories.map((category) => (
+            <Card
+              key={category.value}
+              className="group hover:shadow-lg transition-all duration-300 cursor-pointer border-2 hover:border-orange-200"
+              onClick={() => handleCategoryClick(category.value)}
+            >
+              <CardContent className="p-4 text-center">
+                <div className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                  <category.icon className="h-8 w-8 text-white" />
                 </div>
-              </Card>
-            ))
-          )}
+                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-orange-600 transition-colors duration-300">
+                  {category.name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                  {category.description}
+                </p>
+                <div className="text-xs text-gray-500">
+                  {category.count} events
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="text-center mt-12">
+          <Button
+            variant="outline"
+            size="lg"
+            className="border-orange-200 text-orange-700 hover:bg-orange-50"
+            onClick={() => onCategorySelect && onCategorySelect("")}
+          >
+            View All Categories
+          </Button>
         </div>
       </div>
     </section>
   );
-};
-
-export default EventCategories;
+}

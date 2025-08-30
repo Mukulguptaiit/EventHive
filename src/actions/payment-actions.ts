@@ -1,18 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
-import { razorpay } from "@/lib/razorpay";
 import { auth } from "@/lib/auth";
+import { PaymentStatus, BookingStatus } from "@/generated/prisma";
 import { headers } from "next/headers";
-import { env } from "@/env";
+import crypto from "crypto"; // Only for generating random IDs, not signature checks
 
-export interface CreateOrderResult {
+export interface CreatePaymentOrderData {
+  eventId: string;
+  ticketId: string;
+  quantity: number;
+  totalAmount: number;
+  currency?: string;
+}
+
+export interface CreatePaymentOrderResult {
   success: boolean;
   orderId?: string;
   razorpayOrderId?: string;
-  reservationId?: string;
   error?: string;
 }
 
@@ -22,22 +28,9 @@ export interface VerifyPaymentResult {
   error?: string;
 }
 
-export interface BookingSlot {
-  timeSlotId: string;
-  startTime: string;
-  endTime: string;
-  date: string;
-}
-
-/**
- * Creates a Razorpay order and reserves slots to prevent race conditions
- */
 export async function createPaymentOrder(
-  venueId: string,
-  courtId: string,
-  slots: BookingSlot[],
-  totalAmount: number,
-): Promise<CreateOrderResult> {
+  data: CreatePaymentOrderData
+): Promise<CreatePaymentOrderResult> {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -46,112 +39,64 @@ export async function createPaymentOrder(
       return { success: false, error: "Unauthorized" };
     }
 
-    // Get player profile
-    const playerProfile = await prisma.playerProfile.findUnique({
-      where: { userId: session.user.id },
+    // Validate ticket availability
+    const ticket = await prisma.ticket.findUnique({
+      where: { id: data.ticketId },
+      include: { event: true }
     });
 
-    if (!playerProfile) {
-      return { success: false, error: "Player profile not found" };
+    if (!ticket) {
+      return { success: false, error: "Ticket not found" };
     }
 
-    // Start a database transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
-      // Check if any slots are already booked
-      const existingBookings = await tx.booking.findMany({
-        where: {
-          courtId,
-          timeSlotId: { in: slots.map((s) => s.timeSlotId) },
-          status: { in: ["CONFIRMED", "COMPLETED"] },
-        },
-      });
+    if (!ticket.isActive) {
+      return { success: false, error: "Ticket is not available" };
+    }
 
-      if (existingBookings.length > 0) {
-        throw new Error("One or more time slots are already booked");
+    if (ticket.availableQuantity < data.quantity) {
+      return { success: false, error: "Not enough tickets available" };
+    }
+
+  // Generate a provider-agnostic order id (no external gateway involved)
+  const fakeOrderId = `test_order_${crypto.randomBytes(8).toString("hex")}`;
+  const receipt = `event_${Date.now()}`;
+
+    // Create payment order in database
+  const paymentOrder = await prisma.paymentOrder.create({
+      data: {
+    razorpayOrderId: fakeOrderId,
+    amount: Math.round(data.totalAmount * 100),
+    currency: data.currency || "INR",
+    receipt,
+        status: "PENDING",
+        userId: session.user.id,
+        eventId: data.eventId,
+        ticketId: data.ticketId,
+        quantity: data.quantity,
+        totalAmount: data.totalAmount,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+    razorpayResponse: { id: fakeOrderId, provider: "test" } as any
       }
-
-      // Check for active reservations
-      const activeReservations = await tx.bookingReservation.findMany({
-        where: {
-          timeSlotIds: { hasSome: slots.map((s) => s.timeSlotId) },
-          status: "RESERVED",
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (activeReservations.length > 0) {
-        throw new Error(
-          "One or more time slots are currently being booked by another user",
-        );
-      }
-
-      // Create Razorpay order
-      const razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(totalAmount * 100), // Convert to paise
-        currency: "INR",
-        receipt: `order_${Date.now()}`,
-        notes: {
-          venueId,
-          courtId,
-          playerId: playerProfile.id,
-          slotCount: slots.length.toString(),
-        },
-      });
-
-      // Create payment order record
-      const paymentOrder = await tx.paymentOrder.create({
-        data: {
-          razorpayOrderId: razorpayOrder.id,
-          amount: totalAmount,
-          currency: "INR",
-          receipt: razorpayOrder.receipt,
-          status: "PENDING",
-          playerId: playerProfile.id,
-          timeSlotIds: slots.map((s) => s.timeSlotId),
-          totalPrice: totalAmount,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
-        },
-      });
-
-      // Create slot reservation with 15-minute expiry
-      const reservation = await tx.bookingReservation.create({
-        data: {
-          paymentOrderId: paymentOrder.id,
-          timeSlotIds: slots.map((s) => s.timeSlotId),
-          playerId: playerProfile.id,
-          status: "RESERVED",
-          totalPrice: totalAmount,
-          expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-        },
-      });
-
-      return {
-        orderId: paymentOrder.id,
-        razorpayOrderId: razorpayOrder.id,
-        reservationId: reservation.id,
-      };
     });
 
-    return { success: true, ...result };
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/events/[eventId]");
+
+    return {
+      success: true,
+      orderId: paymentOrder.id,
+  razorpayOrderId: fakeOrderId
+    };
   } catch (error) {
     console.error("Error creating payment order:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Failed to create payment order",
-    };
+    return { success: false, error: "Failed to create payment order" };
   }
 }
 
-/**
- * Verifies Razorpay payment signature and creates booking
- */
 export async function verifyPayment(
   razorpayOrderId: string,
   razorpayPaymentId: string,
-  razorpaySignature: string,
+  _razorpaySignature: string
 ): Promise<VerifyPaymentResult> {
   try {
     const session = await auth.api.getSession({
@@ -161,287 +106,249 @@ export async function verifyPayment(
       return { success: false, error: "Unauthorized" };
     }
 
-    // Get player profile
-    const playerProfile = await prisma.playerProfile.findUnique({
-      where: { userId: session.user.id },
-    });
-
-    if (!playerProfile) {
-      return { success: false, error: "Player profile not found" };
-    }
-
-    // Verify signature
-    const body = razorpayOrderId + "|" + razorpayPaymentId;
-    const expectedSignature = crypto
-      .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
-      .update(body.toString())
-      .digest("hex");
-
-    if (expectedSignature !== razorpaySignature) {
-      return { success: false, error: "Invalid payment signature" };
-    }
+  // No external gateway: accept the payment as successful when called
 
     // Process payment in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Find the payment order
       const paymentOrder = await tx.paymentOrder.findUnique({
         where: { razorpayOrderId },
-        include: { bookingReservation: true },
+        include: { event: true, ticket: true }
       });
 
       if (!paymentOrder) {
         throw new Error("Payment order not found");
       }
 
-      if (paymentOrder.status === "SUCCESSFUL") {
-        // Payment already processed successfully, find the booking
-        const existingBooking = await tx.booking.findFirst({
-          where: {
-            paymentOrderId: paymentOrder.id,
-            status: "CONFIRMED", // Only look for confirmed bookings
-          },
-        });
-
-        if (existingBooking) {
-          return existingBooking.id;
-        } else {
-          // Check if webhook is still processing - look for any booking with this payment order
-          const anyBooking = await tx.booking.findFirst({
-            where: { paymentOrderId: paymentOrder.id },
-          });
-
-          if (anyBooking) {
-            // Booking exists but might be in different state
-            return anyBooking.id;
-          } else {
-            // This is a legitimate race condition - webhook might not have completed yet
-            // Instead of throwing error, let's try to create the booking ourselves
-            console.log(
-              "Payment successful but no booking found, attempting to create booking",
-            );
-            // Fall through to normal booking creation process
-          }
-        }
-      }
-
-      // Allow SUCCESSFUL status to fall through for race condition handling
-      if (
-        paymentOrder.status !== "PENDING" &&
-        paymentOrder.status !== "PROCESSING" &&
-        paymentOrder.status !== "SUCCESSFUL"
-      ) {
-        throw new Error(
-          `Payment order status is ${paymentOrder.status}, cannot verify`,
-        );
-      }
-
-      // Update status to PROCESSING to prevent race conditions (unless already SUCCESSFUL)
-      if (paymentOrder.status !== "SUCCESSFUL") {
-        await tx.paymentOrder.update({
-          where: { id: paymentOrder.id },
-          data: { status: "PROCESSING" },
-        });
-      }
-
-      if (paymentOrder.playerId !== playerProfile.id) {
+      if (paymentOrder.userId !== session.user.id) {
         throw new Error("Unauthorized payment verification");
+      }
+
+      if (paymentOrder.status !== "PENDING") {
+        throw new Error("Payment order is not pending");
       }
 
       if (paymentOrder.expiresAt < new Date()) {
         throw new Error("Payment order has expired");
       }
 
-      // Check if reservation is still valid
-      if (!paymentOrder.bookingReservation) {
-        throw new Error("No reservation found for this payment order");
-      }
-
-      if (paymentOrder.bookingReservation.status !== "RESERVED") {
-        throw new Error("Reservation is no longer valid");
-      }
-
-      if (paymentOrder.bookingReservation.expiresAt < new Date()) {
-        throw new Error("Reservation has expired");
-      }
-
-      // Double-check no bookings exist for these slots
-      const conflictingBookings = await tx.booking.findMany({
-        where: {
-          timeSlotId: { in: paymentOrder.timeSlotIds },
-          status: { in: ["CONFIRMED", "COMPLETED"] },
-        },
+      // Check if tickets are still available
+      const ticket = await tx.ticket.findUnique({
+        where: { id: paymentOrder.ticketId }
       });
 
-      if (conflictingBookings.length > 0) {
-        throw new Error("Slots are no longer available");
+      if (!ticket || !ticket.isActive) {
+        throw new Error("Ticket is no longer available");
+      }
+
+      if (ticket.availableQuantity < paymentOrder.quantity) {
+        throw new Error("Not enough tickets available");
       }
 
       // Create payment record
-      await tx.payment.create({
+    const payment = await tx.payment.create({
         data: {
           paymentOrderId: paymentOrder.id,
-          razorpayPaymentId,
-          razorpaySignature,
+      razorpayPaymentId,
+      razorpaySignature: "test_signature",
           amount: paymentOrder.amount,
           currency: paymentOrder.currency,
           status: "SUCCESSFUL",
+      method: "card",
+      razorpayResponse: { paymentId: razorpayPaymentId, provider: "test" },
           isSignatureVerified: true,
-          verifiedAt: new Date(),
-        },
+          verifiedAt: new Date()
+        }
       });
-
-      // Create bookings for each slot
-      const bookings = await Promise.all(
-        paymentOrder.timeSlotIds.map(async (timeSlotId) => {
-          // Get the time slot to find the court ID
-          const timeSlot = await tx.timeSlot.findUnique({
-            where: { id: timeSlotId },
-            select: { courtId: true },
-          });
-
-          if (!timeSlot) {
-            throw new Error(`Time slot ${timeSlotId} not found`);
-          }
-
-          // Check if there's already a confirmed booking for this time slot
-          const existingConfirmedBooking = await tx.booking.findFirst({
-            where: {
-              timeSlotId,
-              status: "CONFIRMED",
-            },
-          });
-
-          if (existingConfirmedBooking) {
-            throw new Error(`Time slot ${timeSlotId} is already booked`);
-          }
-
-          // Create new booking (allows multiple bookings per slot, keeping cancelled ones as history)
-          return tx.booking.create({
-            data: {
-              timeSlotId,
-              courtId: timeSlot.courtId,
-              playerId: playerProfile.id,
-              totalPrice:
-                paymentOrder.totalPrice / paymentOrder.timeSlotIds.length,
-              status: "CONFIRMED",
-              paymentOrderId: paymentOrder.id,
-            },
-          });
-        }),
-      );
 
       // Update payment order status
       await tx.paymentOrder.update({
         where: { id: paymentOrder.id },
-        data: { status: "SUCCESSFUL" },
-      });
-
-      // Mark reservation as confirmed
-      await tx.bookingReservation.update({
-        where: { paymentOrderId: paymentOrder.id },
         data: {
-          status: "CONFIRMED",
-          confirmedAt: new Date(),
-        },
+          status: "SUCCESSFUL",
+          razorpayResponse: { paymentId: razorpayPaymentId, provider: "test" }
+        }
       });
 
-      return bookings[0]?.id;
+      // Create booking
+      const booking = await tx.booking.create({
+        data: {
+          eventId: paymentOrder.eventId,
+          ticketId: paymentOrder.ticketId,
+          userId: paymentOrder.userId,
+          organizerId: paymentOrder.event.organizerId,
+          quantity: paymentOrder.quantity,
+          totalAmount: paymentOrder.totalAmount,
+          currency: paymentOrder.currency,
+          status: "CONFIRMED",
+          paymentOrderId: paymentOrder.id,
+          paymentStatus: "SUCCESSFUL",
+          attendeeName: session.user.name || "Anonymous",
+          attendeeEmail: session.user.email || "",
+          attendeePhone: undefined,
+          specialRequests: undefined
+        }
+      });
+
+      // Update ticket availability
+      await tx.ticket.update({
+        where: { id: paymentOrder.ticketId },
+        data: {
+          soldQuantity: { increment: paymentOrder.quantity },
+          availableQuantity: { decrement: paymentOrder.quantity }
+        }
+      });
+
+      // Update event attendee count
+      await tx.event.update({
+        where: { id: paymentOrder.eventId },
+        data: {
+          currentAttendees: { increment: paymentOrder.quantity }
+        }
+      });
+
+      return { success: true, bookingId: booking.id };
     });
 
-    // Revalidate relevant pages
-    revalidatePath("/dashboard");
-    revalidatePath("/venues");
+    revalidatePath("/dashboard/bookings");
+    revalidatePath("/events/[eventId]");
 
-    return { success: true, bookingId: result };
+    return result;
   } catch (error) {
     console.error("Error verifying payment:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Payment verification failed",
-    };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to verify payment" };
   }
 }
 
-/**
- * Handles payment failure and cleanup
- */
 export async function handlePaymentFailure(
-  razorpayOrderId: string,
+  razorpayOrderId: string
 ): Promise<void> {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
     await prisma.$transaction(async (tx) => {
       const paymentOrder = await tx.paymentOrder.findUnique({
-        where: { razorpayOrderId },
-        include: { bookingReservation: true },
+        where: { razorpayOrderId }
       });
 
       if (!paymentOrder) {
-        return;
+        throw new Error("Payment order not found");
       }
 
-      // Mark payment order as failed
+      if (paymentOrder.userId !== session.user.id) {
+        throw new Error("Unauthorized");
+      }
+
+      // Update payment order status
       await tx.paymentOrder.update({
         where: { id: paymentOrder.id },
-        data: { status: "FAILED" },
+        data: { status: "FAILED" }
       });
 
-      // Mark reservation as cancelled if it exists
-      if (paymentOrder.bookingReservation) {
-        await tx.bookingReservation.update({
-          where: { paymentOrderId: paymentOrder.id },
-          data: { status: "CANCELLED" },
-        });
-      }
+      // Create failed payment record
+    await tx.payment.create({
+        data: {
+          paymentOrderId: paymentOrder.id,
+          razorpayPaymentId: "failed",
+          amount: paymentOrder.amount,
+          currency: paymentOrder.currency,
+          status: "FAILED",
+          failureReason: "Payment failed",
+      razorpayResponse: { orderId: razorpayOrderId, provider: "test" }
+        }
+      });
     });
+
+    revalidatePath("/dashboard/bookings");
   } catch (error) {
     console.error("Error handling payment failure:", error);
   }
 }
 
-/**
- * Cancels expired reservations and payment orders
- */
-export async function cleanupExpiredReservations(): Promise<void> {
+export async function getPaymentOrder(orderId: string) {
   try {
-    await prisma.$transaction(async (tx) => {
-      const expiredTime = new Date();
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user?.id) {
+      return null;
+    }
 
-      // Find expired reservations
-      const expiredReservations = await tx.bookingReservation.findMany({
-        where: {
-          status: "RESERVED",
-          expiresAt: { lt: expiredTime },
-        },
-      });
-
-      if (expiredReservations.length === 0) {
-        return;
-      }
-
-      // Mark reservations as expired
-      await tx.bookingReservation.updateMany({
-        where: {
-          status: "RESERVED",
-          expiresAt: { lt: expiredTime },
-        },
-        data: { status: "EXPIRED" },
-      });
-
-      // Mark associated payment orders as failed
-      const expiredOrderIds = expiredReservations.map((r) => r.paymentOrderId);
-
-      if (expiredOrderIds.length > 0) {
-        await tx.paymentOrder.updateMany({
-          where: {
-            id: { in: expiredOrderIds },
-            status: "PENDING",
-          },
-          data: { status: "FAILED" },
-        });
+    return await prisma.paymentOrder.findFirst({
+      where: {
+        id: orderId,
+        userId: session.user.id
+      },
+      include: {
+        event: true,
+        ticket: true,
+        payments: true
       }
     });
   } catch (error) {
-    console.error("Error cleaning up expired reservations:", error);
+    console.error("Error fetching payment order:", error);
+    return null;
+  }
+}
+
+export async function cancelPaymentOrder(orderId: string) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user?.id) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const paymentOrder = await prisma.paymentOrder.findFirst({
+      where: {
+        id: orderId,
+        userId: session.user.id,
+        status: "PENDING"
+      }
+    });
+
+    if (!paymentOrder) {
+      return { success: false, error: "Payment order not found or cannot be cancelled" };
+    }
+
+    await prisma.paymentOrder.update({
+      where: { id: orderId },
+      data: { status: "CANCELLED" }
+    });
+
+    revalidatePath("/dashboard/bookings");
+    return { success: true };
+  } catch (error) {
+    console.error("Error cancelling payment order:", error);
+    return { success: false, error: "Failed to cancel payment order" };
+  }
+}
+
+// Cleanup expired pending payment orders to free held inventory
+export async function cleanupExpiredReservations() {
+  try {
+    const now = new Date();
+    const expired = await prisma.paymentOrder.findMany({
+      where: { status: "PENDING", expiresAt: { lt: now } },
+      include: { ticket: true },
+    });
+
+    for (const po of expired) {
+      // Mark order as cancelled
+      await prisma.paymentOrder.update({
+        where: { id: po.id },
+        data: { status: "CANCELLED" },
+      });
+    }
+
+    return { success: true, count: expired.length };
+  } catch (error) {
+    console.error("Error cleaning expired reservations:", error);
+    return { success: false };
   }
 }

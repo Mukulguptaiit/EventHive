@@ -2,49 +2,41 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { prisma } from "./prisma";
 import { tryCatch } from "./trycatch";
-import type { $Enums } from "@/generated/prisma";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Utility function to create attendee profile for new users
-export async function createAttendeeProfile(
+// Create a minimal UserProfile for new users (schema: user_profile)
+export async function createPlayerProfile(
   userId: string,
   userData?: { image?: string | null; name?: string },
-  role: $Enums.UserRole = "ATTENDEE",
+  _role?: any,
 ): Promise<{ success: boolean; error?: string }> {
+  const firstName = userData?.name?.split(" ")[0] || "User";
+  const lastName = userData?.name?.split(" ").slice(1).join(" ") || "";
+
   const { error } = await tryCatch(
-    prisma.attendeeProfile.upsert({
+    prisma.userProfile.upsert({
       where: { userId },
       update: {
-        // Only update if needed - avoid unnecessary writes
-        ...(userData?.image !== undefined && { avatar: userData.image }),
-        role, // Update role if user already exists
-        isActive: true, // Reactivate if user returns
+        ...(userData?.image !== undefined && { avatar: userData.image || undefined }),
       },
       create: {
         userId,
-        role, // Use the provided role instead of hardcoded default
-        avatar: userData?.image ?? null,
-        isActive: true,
-        isBanned: false,
+        firstName,
+        lastName,
+        avatar: userData?.image || undefined,
+  interests: [],
       },
-      // Select only what you need - avoid SELECT *
-      select: {
-        id: true,
-        userId: true,
-        role: true,
-        isActive: true,
-      },
+      select: { id: true, userId: true },
     }),
   );
 
   if (error) {
     // Structured error logging for better monitoring
-    console.error("Failed to create attendee profile:", {
+  console.error("Failed to create user profile:", {
       userId,
-      role,
       error: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
     });
@@ -54,7 +46,7 @@ export async function createAttendeeProfile(
       error:
         error instanceof Error
           ? error.message
-          : "Failed to create attendee profile",
+          : "Failed to create user profile",
     };
   }
   return { success: true };

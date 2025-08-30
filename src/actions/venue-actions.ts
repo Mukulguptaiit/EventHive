@@ -16,51 +16,6 @@ import {
 import { type SportType } from "@/generated/prisma";
 import { UserRole } from "@/types/venue";
 
-// Temporary placeholder functions for event management
-export async function getPlatformStats() {
-  try {
-    const events = await prisma.event.count({ where: { status: 'PUBLISHED' } });
-    const attendees = await prisma.attendeeProfile.count();
-    const organizers = await prisma.attendeeProfile.count({ where: { role: 'EVENT_ORGANIZER' } });
-    
-    return {
-      events,
-      attendees,
-      organizers,
-    };
-  } catch (error) {
-    console.error("Error fetching platform stats:", error);
-    return {
-      events: 0,
-      attendees: 0,
-      organizers: 0,
-    };
-  }
-}
-
-export async function getEventCategories() {
-  try {
-    const eventTypes = await prisma.event.groupBy({
-      by: ['eventType'],
-      _count: {
-        id: true,
-      },
-      where: {
-        status: 'PUBLISHED',
-      },
-    });
-
-    return eventTypes.map(et => ({
-      name: et.eventType,
-      image: `/assets/sports/badminton.jpg`, // Placeholder
-      events: et._count.id,
-    }));
-  } catch (error) {
-    console.error("Error fetching event categories:", error);
-    return [];
-  }
-}
-
 // Get all reviews for admin panel
 export async function getAllReviews() {
   try {
@@ -716,6 +671,57 @@ export async function getSportsCategories(): Promise<
   } catch (error) {
     console.error("Error getting sports categories:", error);
     throw new Error("Failed to get sports categories");
+  }
+}
+
+/**
+ * Get platform statistics for home page
+ */
+export async function getPlatformStats(): Promise<{
+  venues: number;
+  players: number;
+  sports: number;
+}> {
+  try {
+    // Get venue count (approved facilities)
+    const venueCount = await prisma.facility.count({
+      where: {
+        status: "APPROVED",
+      },
+    });
+
+    // Get player count (active player profiles)
+    const playerCount = await prisma.playerProfile.count({
+      where: {
+        isActive: true,
+        isBanned: false,
+      },
+    });
+
+    // Get sports count (unique sport types with active courts)
+    const sportsResult = await prisma.court.findMany({
+      where: {
+        isActive: true,
+        facility: {
+          status: "APPROVED",
+        },
+      },
+      select: {
+        sportType: true,
+      },
+      distinct: ["sportType"],
+    });
+
+    const sportsCount = sportsResult.length;
+
+    return {
+      venues: venueCount,
+      players: playerCount,
+      sports: sportsCount,
+    };
+  } catch (error) {
+    console.error("Error getting platform stats:", error);
+    throw new Error("Failed to get platform statistics");
   }
 }
 

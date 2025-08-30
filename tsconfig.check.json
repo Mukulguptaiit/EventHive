@@ -1,0 +1,39 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/app/layout.tsx",
+    "src/app/page.tsx",
+    "src/app/events/**/*.ts",
+    "src/app/events/**/*.tsx",
+    "src/app/api/events/**/*.ts",
+    "src/app/api/events/**/*.tsx",
+    "src/components/EventCard.tsx",
+    "src/components/home/**/*.ts",
+    "src/components/home/**/*.tsx",
+    "src/components/ui/**/*.ts",
+    "src/components/ui/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/generated/**",
+    "src/actions/**",
+    "src/components/venue/**",
+    "src/components/admin/**",
+    "src/components/dashboard/**",
+    "src/app/admin/**",
+    "src/app/dashboard/**",
+    "src/app/api/profile/**",
+    "src/app/api/bookings/**",
+    "src/app/api/debug/**",
+    "src/app/api/webhooks/**",
+    "src/lib/razorpay.ts",
+    "src/lib/admin-utils.ts",
+    "src/lib/auth-utils.ts",
+    "src/lib/reservation-cleanup.ts",
+    "scripts/**"
+  ]
+}
