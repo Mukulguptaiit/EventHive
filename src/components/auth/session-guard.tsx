@@ -27,24 +27,26 @@ export function SessionGuard({
 
     const validateSession = async () => {
       try {
-        const session = await authClient.getSession();
+        const result = await authClient.getSession();
 
         if (!isMounted) return;
 
+        const session = result?.data ?? null;
         if (!session) {
           router.replace(redirectTo);
           return;
         }
 
         // Check email verification if required
-        if (requireEmailVerification && !session.user.emailVerified) {
+        const emailVerified = Boolean((session as any)?.user?.emailVerified);
+        if (requireEmailVerification && !emailVerified) {
           router.replace("/auth/verify-email");
           return;
         }
 
         // Check role requirements
         if (requiredRoles.length > 0) {
-          const userRole = session.user.role as UserRole;
+          const userRole = (session as any)?.user?.role as UserRole | undefined;
           if (!userRole || !requiredRoles.includes(userRole)) {
             router.replace("/auth/login");
             return;

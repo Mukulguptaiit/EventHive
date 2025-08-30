@@ -41,7 +41,8 @@ export const auth = betterAuth({
       },
       otpLength: 6,
       expiresIn: 60 * 10, // 10 minutes
-      sendVerificationOnSignUp: true,
+  // Avoid double OTP: let overrideDefaultEmailVerification handle the single send
+  sendVerificationOnSignUp: false,
       overrideDefaultEmailVerification: true,
     }),
   ],

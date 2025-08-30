@@ -34,9 +34,7 @@ export function AuthPage({ initialStep = "login" }: AuthPageProps) {
     setVerificationEmail(email);
     setCurrentStep("verify-email");
     setError("");
-    setSuccess(
-      "Account created successfully! Please check your email for verification.",
-    );
+  setSuccess("Account created successfully. Check your email for the OTP.");
   };
 
   const handleLoginSuccess = () => {
