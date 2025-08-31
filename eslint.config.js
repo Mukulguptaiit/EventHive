@@ -21,7 +21,6 @@ export default tseslint.config(
   "src/app/api/bookings/**",
   "src/app/api/debug/**",
   "src/app/api/webhooks/**",
-  "src/lib/razorpay.ts",
   "src/lib/admin-utils.ts",
   "src/lib/auth-utils.ts",
   "src/lib/reservation-cleanup.ts",

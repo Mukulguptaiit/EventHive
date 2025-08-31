@@ -27,7 +27,7 @@ A comprehensive event management platform where organizers can easily create, pu
 - **Real-time Updates**: Live availability updates and booking confirmations
 - **Responsive Design**: Mobile-first design that works on all devices
 - **Smart Filtering**: Advanced search with multiple criteria and sorting options
-- **Payment Integration**: Razorpay payment gateway with UPI, cards, net banking
+- **Payment Integration**: Internal payment simulator (provider-agnostic), ready for future gateways
 - **QR Code Generation**: Automatic ticket generation with unique QR codes
 - **Email/WhatsApp Integration**: Multi-channel ticket delivery and notifications
 
@@ -51,7 +51,7 @@ A comprehensive event management platform where organizers can easily create, pu
 
 ### Payments & Services
 
-- **Razorpay** - Payment gateway integration
+- **Payments** - Provider-agnostic internal flow (swap in your gateway later)
 - **Email Verification** - Secure user onboarding
 - **WhatsApp Business API** - Ticket delivery and notifications
 - **QR Code Generation** - Unique ticket identification
@@ -70,7 +70,7 @@ A comprehensive event management platform where organizers can easily create, pu
 - Node.js 18+
 - pnpm (recommended) or npm
 - PostgreSQL database
-- Razorpay account for payments
+- (Optional) Payment gateway account if you plan to integrate a real provider
 - WhatsApp Business API (optional)
 
 ### Installation
@@ -100,9 +100,8 @@ A comprehensive event management platform where organizers can easily create, pu
   BETTER_AUTH_SECRET="<64-char-hex-secret>"
   BETTER_AUTH_URL="http://localhost:4000"
 
-   # Razorpay
-   NEXT_PUBLIC_RAZORPAY_KEY_ID="your-razorpay-key-id"
-   RAZORPAY_KEY_SECRET="your-razorpay-secret"
+  # Payments
+  # Using internal payment simulator (no keys required)
 
    # Email (for verification and tickets)
    RESEND_API_KEY="your-resend-api-key"
@@ -183,7 +182,7 @@ public/
 ### Booking & Payment System
 
 - **Secure Booking**: Multi-step booking process with attendee information
-- **Payment Integration**: Razorpay with multiple payment methods
+- **Payment Integration**: Internal simulator with a simple confirmation flow
 - **Ticket Generation**: Automatic PDF and QR code generation
 
 ### Notification System
@@ -223,9 +222,7 @@ public/
 
 ### Payments
 
-- `POST /api/payments/create-order` - Create Razorpay order
-- `POST /api/payments/verify` - Verify payment
-- `POST /api/payments/refund` - Process refund
+- Payment flows are handled via internal server actions (create/confirm/cancel) using a simulator by default
 
 ### Notifications
 
@@ -289,8 +286,6 @@ const generateTicketQR = async (bookingId: string, eventId: string) => {
 DATABASE_URL="your-production-database-url"
 BETTER_AUTH_SECRET="secure-production-secret"
 BETTER_AUTH_URL="https://your-domain.com"
-NEXT_PUBLIC_RAZORPAY_KEY_ID="production-razorpay-key"
-RAZORPAY_KEY_SECRET="production-razorpay-secret"
 RESEND_API_KEY="production-resend-key"
 WHATSAPP_API_TOKEN="production-whatsapp-token"
 ```

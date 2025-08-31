@@ -63,7 +63,8 @@ export async function createPaymentOrder(
     // Create payment order in database
   const paymentOrder = await prisma.paymentOrder.create({
       data: {
-    // Use the generic id field and save the internalOrderId in receipt/response for traceability
+    // Populate required prisma fields and save the internalOrderId for traceability
+    razorpayOrderId: internalOrderId, // using internal id to satisfy legacy schema
     amount: Math.round(data.totalAmount * 100),
     currency: data.currency || "INR",
     receipt,
@@ -100,7 +101,7 @@ export async function confirmInternalPayment(orderId: string): Promise<VerifyPay
 
   // No external gateway: accept the payment as successful when called
 
-    // Process payment in transaction
+  // Process payment in transaction
     const result = await prisma.$transaction(async (tx) => {
       const paymentOrder = await tx.paymentOrder.findUnique({
         where: { id: orderId },
@@ -136,10 +137,13 @@ export async function confirmInternalPayment(orderId: string): Promise<VerifyPay
         throw new Error("Not enough tickets available");
       }
 
-    // Create payment record
-    await tx.payment.create({
+  // Create payment record
+  const internalPaymentId = `pay_${crypto.randomBytes(8).toString("hex")}`;
+  await tx.payment.create({
         data: {
           paymentOrderId: paymentOrder.id,
+      razorpayPaymentId: internalPaymentId, // satisfy legacy schema with internal id
+      razorpaySignature: null,
           amount: paymentOrder.amount,
           currency: paymentOrder.currency,
           status: "SUCCESSFUL",
@@ -236,10 +240,13 @@ export async function handlePaymentFailure(orderId: string): Promise<void> {
         data: { status: "FAILED" }
       });
 
-      // Create failed payment record
+  // Create failed payment record
+    const internalPaymentId = `pay_${crypto.randomBytes(8).toString("hex")}`;
     await tx.payment.create({
         data: {
           paymentOrderId: paymentOrder.id,
+      razorpayPaymentId: internalPaymentId,
+      razorpaySignature: null,
           amount: paymentOrder.amount,
           currency: paymentOrder.currency,
           status: "FAILED",

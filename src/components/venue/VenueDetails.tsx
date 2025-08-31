@@ -63,7 +63,7 @@ import {
 } from "@/actions/venue-actions";
 import {
   createPaymentOrder,
-  verifyPayment,
+  confirmInternalPayment,
   handlePaymentFailure,
 } from "@/actions/payment-actions";
 import type {
@@ -75,7 +75,7 @@ import RatingDisplay from "./RatingDisplay";
 import ReviewForm from "./ReviewForm";
 import { ReportForm } from "@/components/forms/report-form";
 import { canReviewVenue } from "@/actions/venue-actions";
-import { env } from "@/env";
+// import { env } from "@/env"; // No longer needed after removing Razorpay
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
@@ -353,11 +353,7 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
   };
 
   // Payment handlers
-  const handlePaymentSuccess = async (
-    razorpayOrderId: string,
-    razorpayPaymentId: string,
-    razorpaySignature: string,
-  ) => {
+  const handleInternalPaymentSuccess = async (orderId: string) => {
     // Prevent duplicate processing
     if (isProcessingPayment) {
       console.log("Payment already being processed, skipping...");
@@ -367,19 +363,14 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
     try {
       setIsProcessingPayment(true);
       setPaymentError(null);
-
-      const result = await verifyPayment(
-        razorpayOrderId,
-        razorpayPaymentId,
-        razorpaySignature,
-      );
+      const result = await confirmInternalPayment(orderId);
 
       if (result.success) {
         toast.success(
           "Payment successful! Your booking has been confirmed. Redirecting to your bookings...",
         );
-        setIsBookingOpen(false);
-        setSelectedSlots([]);
+  setIsBookingOpen(false);
+  setSelectedSlots([]);
 
         // Small delay to let user see the success message, then redirect
         setTimeout(() => {
@@ -392,7 +383,7 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
         throw new Error(result.error || "Payment verification failed");
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
+  console.error("Payment confirmation error:", error);
 
       // Check if this is a payment already processed error
       const errorMessage =
@@ -410,8 +401,8 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
         errorMessage.includes("no booking found");
 
       if (!isPaymentAlreadyProcessed && !isBookingPending) {
-        setPaymentError(errorMessage);
-        toast.error("Payment verification failed. Please contact support.");
+  setPaymentError(errorMessage);
+  toast.error("Payment confirmation failed. Please contact support.");
         // Reopen booking dialog for genuine errors
         setIsBookingOpen(true);
       } else if (isBookingPending) {
@@ -436,7 +427,7 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
     }
   };
 
-  const initializeRazorpayPayment = async () => {
+  const initializeInternalPayment = async () => {
     try {
       setIsProcessingPayment(true);
       setPaymentError(null);
@@ -450,99 +441,26 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
       );
       if (!firstSlot) throw new Error("Selected slot not found");
 
-      const courtId = firstSlot.courtId;
       const totalAmount = getTotalPrice();
 
-      // Create booking slots data
-      const bookingSlots = selectedSlots.map((timeSlotId) => {
-        const slot = timeSlots.find((s) => s.timeSlotId === timeSlotId);
-        return {
-          timeSlotId: slot?.timeSlotId || "",
-          startTime: slot?.time || "",
-          endTime: slot?.time || "", // You might want to calculate end time properly
-          date: format(selectedDate, "yyyy-MM-dd"),
-        };
-      });
-
-      // Create payment order
-      const orderResult = await createPaymentOrder(
-        venue.id,
-        courtId,
-        bookingSlots,
+      // Create payment order using internal flow
+      const ticketType = venue.sports?.[0]?.name || "Ticket";
+      const orderResult = await createPaymentOrder({
+        eventId: venue.id,
+        ticketId: ticketType,
+        quantity: selectedSlots.length,
         totalAmount,
-      );
+        currency: "INR",
+      } as any);
 
-      if (!orderResult.success || !orderResult.razorpayOrderId) {
+      if (!orderResult.success || !orderResult.orderId) {
         throw new Error(orderResult.error || "Failed to create payment order");
       }
 
-      // Close the booking dialog before opening payment gateway
-      setIsBookingOpen(false);
-
-      // Load Razorpay script dynamically
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => {
-        const options = {
-          key: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          amount: Math.round(totalAmount * 100), // Convert to paise
-          currency: "INR",
-          name: "QuickCourt",
-          description: `Booking for ${venue.name}`,
-          order_id: orderResult.razorpayOrderId,
-          handler: async function (response: any) {
-            await handlePaymentSuccess(
-              response.razorpay_order_id,
-              response.razorpay_payment_id,
-              response.razorpay_signature,
-            );
-          },
-          prefill: {
-            name: session?.user?.name || "User",
-            email: session?.user?.email || "",
-          },
-          notes: {
-            venue_id: venue.id,
-            court_id: courtId,
-            date: format(selectedDate, "yyyy-MM-dd"),
-            slots: selectedSlots
-              .map((timeSlotId) => {
-                const slot = timeSlots.find((s) => s.timeSlotId === timeSlotId);
-                return slot?.time;
-              })
-              .filter(Boolean)
-              .join(", "),
-          },
-          theme: {
-            color: "#059669", // Emerald color to match your theme
-          },
-          modal: {
-            ondismiss: function () {
-              setIsProcessingPayment(false);
-              // Reopen booking dialog if payment was cancelled/dismissed
-              setIsBookingOpen(true);
-              // Handle payment failure/cancellation
-              if (orderResult.razorpayOrderId) {
-                // Call handlePaymentFailure but don't await to avoid blocking
-                handlePaymentFailure(orderResult.razorpayOrderId).catch(
-                  (error) => {
-                    console.error("Error handling payment failure:", error);
-                  },
-                );
-              }
-            },
-          },
-        };
-
-        const razorpay = new (window as any).Razorpay(options);
-        razorpay.open();
-      };
-
-      script.onerror = () => {
-        throw new Error("Failed to load payment gateway");
-      };
-
-      document.body.appendChild(script);
+      // Keep dialog open and show a simple test payment simulator
+      setIsProcessingPayment(false);
+      // Trigger inline simulator success immediately (for MVP)
+      await handleInternalPaymentSuccess(orderResult.orderId);
     } catch (error) {
       console.error("Payment initialization error:", error);
       setPaymentError(
@@ -1183,7 +1101,7 @@ export default function VenueDetails({ id }: VenueDetailsProps) {
                 )}
                 <Button
                   className="h-12 w-full bg-emerald-600 text-lg hover:bg-emerald-700 disabled:opacity-50"
-                  onClick={initializeRazorpayPayment}
+                  onClick={initializeInternalPayment}
                   disabled={isProcessingPayment}
                 >
                   {isProcessingPayment ? (

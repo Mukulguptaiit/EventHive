@@ -1,22 +1,11 @@
-import Razorpay from "razorpay";
-import { env } from "@/env";
-
 /**
- * Razorpay client instance for server-side operations
+ * Deprecated: Razorpay has been fully removed from EventHive.
+ * This file remains as a no-op stub to avoid breaking any stray imports.
  */
-export const razorpay = new Razorpay({
-  key_id: env.RAZORPAY_KEY_ID,
-  key_secret: env.RAZORPAY_KEY_SECRET,
-});
 
-/**
- * Razorpay configuration for client-side operations
- */
-export const razorpayConfig = {
-  key_id: env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-};
+// No external dependencies or environment variables required.
+// Use internal payment simulator instead (see src/actions/payment-actions.ts).
 
-/**
- * Webhook secret for payment verification
- */
-export const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+export const razorpay = null;
+export const razorpayConfig = {} as const;
+export const webhookSecret = "" as const;

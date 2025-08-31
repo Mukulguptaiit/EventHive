@@ -18,9 +18,7 @@ export const env = createEnv({
     NEXT_PUBLIC_EMAILJS_SERVICE_ID: z.string(),
     NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: z.string(),
     NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: z.string(),
-    // RAZORPAY_KEY_SECRET: z.string(),
-    // RAZORPAY_WEBHOOK_SECRET: z.string(),
-    // RAZORPAY_KEY_ID: z.string(),
+    
   },
 
   /**
@@ -32,7 +30,7 @@ export const env = createEnv({
     NEXT_PUBLIC_EMAILJS_SERVICE_ID: z.string(),
     NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: z.string(),
     NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: z.string(),
-    // NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string(),
+    
   },
 
   /**
@@ -51,11 +49,7 @@ export const env = createEnv({
     NEXT_PUBLIC_EMAILJS_SERVICE_ID: process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
     NEXT_PUBLIC_EMAILJS_TEMPLATE_ID: process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
     NEXT_PUBLIC_EMAILJS_PUBLIC_KEY: process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY,
-    // RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    // RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
-    // RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET,
-    // NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-    // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
+  // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
