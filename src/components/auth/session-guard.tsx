@@ -15,7 +15,7 @@ interface SessionGuardProps {
 
 export function SessionGuard({
   children,
-  requiredRoles = [UserRole.USER],
+  requiredRoles = [],
   requireEmailVerification = false,
   redirectTo = "/auth/login",
   unauthorizedTo = "/",

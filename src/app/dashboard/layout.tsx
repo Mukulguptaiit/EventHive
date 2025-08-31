@@ -7,7 +7,7 @@ export default function DashboardLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <SessionGuard
-  requiredRoles={[UserRole.EVENT_ORGANIZER, UserRole.ADMIN]}
+  requiredRoles={[]}
       requireEmailVerification={true}
   unauthorizedTo="/"
     >
