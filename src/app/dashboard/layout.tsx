@@ -7,8 +7,9 @@ export default function DashboardLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <SessionGuard
-      requiredRoles={[UserRole.FACILITY_OWNER, UserRole.ADMIN]}
+  requiredRoles={[UserRole.EVENT_ORGANIZER, UserRole.ADMIN]}
       requireEmailVerification={true}
+  unauthorizedTo="/"
     >
       <Navbar />
       <div className="flex flex-1 flex-col">

@@ -10,6 +10,7 @@ interface SessionGuardProps {
   requiredRoles?: UserRole[];
   requireEmailVerification?: boolean;
   redirectTo?: string;
+  unauthorizedTo?: string;
 }
 
 export function SessionGuard({
@@ -17,6 +18,7 @@ export function SessionGuard({
   requiredRoles = [UserRole.USER],
   requireEmailVerification = false,
   redirectTo = "/auth/login",
+  unauthorizedTo = "/",
 }: SessionGuardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -45,10 +47,10 @@ export function SessionGuard({
         }
 
         // Check role requirements
-        if (requiredRoles.length > 0) {
+    if (requiredRoles.length > 0) {
           const userRole = (session as any)?.user?.role as UserRole | undefined;
           if (!userRole || !requiredRoles.includes(userRole)) {
-            router.replace("/auth/login");
+      router.replace(unauthorizedTo);
             return;
           }
         }
@@ -71,7 +73,7 @@ export function SessionGuard({
     return () => {
       isMounted = false;
     };
-  }, [requiredRoles, requireEmailVerification, redirectTo, router]);
+  }, [requiredRoles, requireEmailVerification, redirectTo, unauthorizedTo, router]);
 
   if (isLoading) {
     return (

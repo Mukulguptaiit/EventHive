@@ -39,6 +39,7 @@ export enum FacilityStatus {
 
 export enum UserRole {
   USER = "USER",
+  EVENT_ORGANIZER = "EVENT_ORGANIZER",
   FACILITY_OWNER = "FACILITY_OWNER",
   ADMIN = "ADMIN",
 }

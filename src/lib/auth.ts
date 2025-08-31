@@ -52,9 +52,19 @@ export const auth = betterAuth({
       return true;
     },
     async session({ session, user }) {
-      // Add user ID to session
+      // Add user ID and role to session
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = user.id as string;
+        try {
+          const profile = await prisma.playerProfile.findUnique({
+            where: { userId: user.id as string },
+            select: { role: true },
+          });
+          // Default to USER if no profile/role
+          (session.user as any).role = profile?.role ?? "USER";
+        } catch {
+          (session.user as any).role = "USER";
+        }
       }
       return session;
     },
